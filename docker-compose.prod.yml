@@ -39,7 +39,7 @@ services:
       Minio__Bucket: coaching
       Minio__PublicEndpoint: ${MINIO_PUBLIC_ENDPOINT:?MINIO_PUBLIC_ENDPOINT is required}
       Redis__ConnectionString: cache:6379
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_ENDPOINT:-}
       Seq__ServerUrl: ${SEQ_URL:-}
       Cors__Origins__0: ${WEB_ORIGIN:-http://localhost:3000}
     depends_on:
