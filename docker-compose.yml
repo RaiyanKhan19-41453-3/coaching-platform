@@ -58,6 +58,18 @@ services:
       Minio__Bucket: coaching
       Minio__PublicEndpoint: "http://localhost:${MINIO_PORT:-9000}"
       Cors__Origins__0: "http://localhost:${WEB_PORT:-13000}"
+
+      # Optional observability
+      Seq__ServerUrl: ${SEQ_URL:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_ENDPOINT:-}
+
+      # Optional email / SMS delivery (empty values = no-op)
+      Messaging__SmtpHost: ${SMTP_HOST:-}
+      Messaging__SmtpPort: ${SMTP_PORT:-587}
+      Messaging__SmtpUser: ${SMTP_USER:-}
+      Messaging__SmtpPassword: ${SMTP_PASSWORD:-}
+      Messaging__FromAddress: ${SMTP_FROM:-noreply@coaching.local}
+      Messaging__SmsWebhook: ${SMS_WEBHOOK:-}
     ports:
       - "${API_PORT:-18081}:8080"
 
