@@ -20,7 +20,7 @@ public sealed class ProjectionRebuilder(JobDbContextFactory factory, ILogger<Pro
         await connection.OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
         await using (var cmd = new NpgsqlCommand(
-            "SELECT pg_advisory_xact_lock(hashtext('coaching-projection-rebuild'))", connection, (NpgsqlTransaction)transaction))
+            "SELECT pg_advisory_xact_lock(hashtext('coaching-projection-writes'))", connection, (NpgsqlTransaction)transaction))
         {
             await cmd.ExecuteNonQueryAsync();
         }

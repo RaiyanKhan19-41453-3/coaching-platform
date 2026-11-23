@@ -18,7 +18,7 @@ public sealed class OutboxDispatcher(
     IHubContext<NotificationHub> hub,
     ILogger<OutboxDispatcher> logger)
 {
-    private const int BatchSize = 50;
+    private const int BatchSize = 500;
     private const int MaxRetries = 5;
 
     public async Task DispatchAsync() => await DispatchCoreAsync(CancellationToken.None);
@@ -33,7 +33,7 @@ public sealed class OutboxDispatcher(
         await connection.OpenAsync(ct);
         await using var transaction = await connection.BeginTransactionAsync(ct);
         await using (var lockCommand = new NpgsqlCommand(
-            "SELECT pg_advisory_xact_lock(hashtext('coaching-outbox-dispatch'))", connection, (NpgsqlTransaction)transaction))
+            "SELECT pg_advisory_xact_lock(hashtext('coaching-projection-writes'))", connection, (NpgsqlTransaction)transaction))
         {
             await lockCommand.ExecuteNonQueryAsync(ct);
         }

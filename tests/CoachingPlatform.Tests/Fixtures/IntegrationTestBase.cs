@@ -21,6 +21,7 @@ public abstract class IntegrationTestBase(DatabaseFixture fixture) : IAsyncLifet
     private ServiceProvider _services = null!;
     protected TestAmbientContext Ambient { get; } = new();
 
+    protected IServiceProvider Services => _services;
     protected ISender Sender => _services.GetRequiredService<ISender>();
     protected AppDbContext Db => _services.GetRequiredService<AppDbContext>();
     protected FakeObjectStorage Storage => (FakeObjectStorage)_services.GetRequiredService<IObjectStorage>();

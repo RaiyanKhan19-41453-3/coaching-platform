@@ -163,6 +163,27 @@ The `projection-rebuild` Hangfire job (daily) recomputes every projection from t
 so backfills and drift repair are a single operation. Incremental handlers and the rebuild
 normalise periods to the first of the month, so they produce identical rows.
 
+## Concurrency & load behaviour
+
+Under simultaneous load the system keeps data consistent by **failing conflicts safely**:
+
+- Tenant isolation is enforced by global query filters on every tenant row.
+- Mutable aggregates (`Invoice`, `Batch`, `User`, `RefreshToken`, attendance) carry a concurrency
+  token. Two writers cannot both win — the loser gets a structured **409** instead of silently
+  overwriting. Concurrency tests prove two enrolments never exceed a batch's capacity and two
+  payments never exceed an invoice's total.
+- Duplicate keys (gateway transaction IDs, unique enrolment, generated sessions) are enforced by
+  database indexes.
+- Outbox dispatch and projection rebuild share a Postgres advisory lock, so they can never
+  interleave; the dispatch job runs every 10 seconds in batches of 500.
+- Rate limits are configurable (`RateLimit__PerTenantPerMinute`, `RateLimit__AuthPerIpPerMinute`).
+  Exceeding them returns 429 — a deliberate throttle, not data loss.
+
+Known scale boundary: the in-process rate limiter counts per API replica, not globally. With
+multiple replicas, effective limits multiply by replica count; add a Redis-backed limiter if you
+need a strict global quota. The API is otherwise stateless, Hangfire coordinates through
+Postgres, and SignalR uses the Redis backplane.
+
 ## Production hardening & CI
 
 - **OpenAPI** at `/openapi/v1.json`, interactive **Scalar** UI at `/scalar/v1` (bearer scheme registered)

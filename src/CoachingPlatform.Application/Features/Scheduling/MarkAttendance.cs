@@ -95,7 +95,14 @@ public sealed class MarkAttendanceHandler(IApplicationDbContext db, ICurrentUser
             }),
             OccurredAt = DateTimeOffset.UtcNow
         });
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("Attendance changed concurrently; please retry.");
+        }
         return written;
     }
 }

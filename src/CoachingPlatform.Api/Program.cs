@@ -86,7 +86,8 @@ builder.Services.AddRateLimiter(options =>
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions
         {
-            PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0
+            PermitLimit = int.TryParse(builder.Configuration["RateLimit:AuthPerIpPerMinute"], out var authLimit) ? authLimit : 100,
+            Window = TimeSpan.FromMinutes(1), QueueLimit = 0
         }));
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
@@ -96,7 +97,8 @@ builder.Services.AddRateLimiter(options =>
             : $"tenant:{tenant}";
         return RateLimitPartition.GetSlidingWindowLimiter(key, _ => new SlidingWindowRateLimiterOptions
         {
-            PermitLimit = 300, Window = TimeSpan.FromMinutes(1), SegmentsPerWindow = 6, QueueLimit = 0
+            PermitLimit = int.TryParse(builder.Configuration["RateLimit:PerTenantPerMinute"], out var tenantLimit) ? tenantLimit : 6000,
+            Window = TimeSpan.FromMinutes(1), SegmentsPerWindow = 6, QueueLimit = 0
         });
     });
 });
@@ -237,7 +239,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-RecurringJob.AddOrUpdate<OutboxDispatcher>("outbox-dispatch", job => job.DispatchAsync(), "*/1 * * * *");
+RecurringJob.AddOrUpdate<OutboxDispatcher>("outbox-dispatch", job => job.DispatchAsync(), "*/10 * * * * *");
 RecurringJob.AddOrUpdate<RefreshTokenCleanup>("refresh-token-cleanup", job => job.CleanupAsync(), Cron.Daily);
 RecurringJob.AddOrUpdate<ProjectionRebuilder>("projection-rebuild", job => job.RebuildAsync(), Cron.Daily);
 
