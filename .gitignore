@@ -1,0 +1,35 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+artifacts/
+TestResults/
+*.coverage
+*.trx
+
+## Node
+node_modules/
+dist/
+.vite/
+*.local
+
+## Env / secrets
+.env
+.env.*
+!.env.example
+
+## Docker volumes
+.volumes/
+
+## IDE / OS
+.vs/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+## Misc
+*.log
