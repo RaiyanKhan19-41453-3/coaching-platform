@@ -16,7 +16,7 @@ docker compose up -d --build
 | Health | http://localhost:18081/health/ready | Postgres readiness |
 | SignalR | http://localhost:18081/hubs/notifications | Real-time hub |
 | Postgres | localhost:15432 | `coaching` / `coaching` |
-| Redis | localhost:16379 | Cache + SignalR backplane candidate |
+| Redis | localhost:16379 | SignalR backplane for multi-replica push |
 
 Optional services:
 
@@ -116,6 +116,36 @@ stamp commit in **one transaction**, so a retry cannot duplicate side effects.
 
 Dashboard: http://localhost:18081/jobs (Development only). Manual drain:
 `POST /api/jobs/outbox/dispatch` with a bearer token.
+
+## Tests
+
+```bash
+./scripts/run-tests.sh
+```
+
+21 tests run in a .NET SDK container; Testcontainers starts a real Postgres 17 container via
+the host Docker socket (`--network host` lets the test process reach it). Integration tests
+exercise the real EF model, global query filters, audit interceptor, MediatR pipeline and
+handlers — no mocked DbContexts. Unit tests cover `Money` and PBKDF2 password hashing.
+
+## Realtime notifications
+
+- `NotificationHub` is authenticated and puts each connection in a `user:{userId}` group
+  (plus `tenant:{tenantId}`).
+- After an outbox handler commits its notification, `OutboxDispatcher` pushes the payload to
+  that user's group — **after** the transaction commits, so a transport failure cannot cause a
+  duplicate notification on retry.
+- SignalR uses a Redis backplane (`Redis:ConnectionString`) so messages fan out across API
+  replicas. Remove that setting to run without Redis.
+- The React container signs in, opens `/hubs/notifications` with the access token, and shows
+  live notifications. Nginx proxies the WebSocket upgrade.
+
+End-to-end check:
+
+```bash
+docker run --rm --network host -v "$PWD":/work -w /work node:22-alpine \
+  sh -c 'npm install --no-save @microsoft/signalr@10.0.11 >/dev/null && node scripts/verify-realtime.mjs'
+```
 
 ## EF tooling
 

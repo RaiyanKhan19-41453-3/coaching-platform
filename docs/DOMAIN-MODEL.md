@@ -60,3 +60,12 @@ original value in the `WHERE` clause and the fresh value in `SET`. A
 - **Transactional boundaries**: invoice creation computes `Money` totals in the domain value
   object; payment recording updates the invoice, inserts the payment, posts two ledger rows
   and queues the event in a single `SaveChangesAsync`.
+
+
+## Realtime delivery
+
+The outbox worker is the single producer of notifications. It collects the `Notification`
+rows added by a handler, commits them together with the `ProcessedAt` stamp, then publishes each
+row to the recipient's SignalR group. Delivery is at-least-once from the client's perspective
+(the row is durable in the database), but exactly-once at the database level: a failed push is
+logged, not retried, so it cannot duplicate the row.

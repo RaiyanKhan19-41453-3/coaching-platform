@@ -1,6 +1,8 @@
 using System.Text.Json;
+using CoachingPlatform.Domain.Communication;
 using CoachingPlatform.Domain.Platform;
 using CoachingPlatform.Infrastructure.Persistence;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoachingPlatform.Api.Jobs;
@@ -12,6 +14,7 @@ namespace CoachingPlatform.Api.Jobs;
 public sealed class OutboxDispatcher(
     JobDbContextFactory factory,
     IEnumerable<IOutboxEventHandler> handlers,
+    IHubContext<NotificationHub> hub,
     ILogger<OutboxDispatcher> logger)
 {
     private const int BatchSize = 50;
@@ -45,8 +48,34 @@ public sealed class OutboxDispatcher(
                     await handler.HandleAsync(payload.RootElement, db, ambient.TenantId, ct);
                 else logger.LogWarning("No handler for outbox event {EventType}", message.EventType);
 
+                var pushed = db.ChangeTracker.Entries<Notification>()
+                    .Where(e => e.State == EntityState.Added)
+                    .Select(e => e.Entity)
+                    .ToList();
+
                 message.ProcessedAt = DateTimeOffset.UtcNow;
                 await db.SaveChangesAsync(ct);
+
+                // Push only after the transaction commits: a transport failure must not
+                // trigger a retry that would duplicate the notification row.
+                foreach (var notice in pushed)
+                {
+                    try
+                    {
+                        await hub.Clients.Group($"user:{notice.UserId}").SendAsync("notification", new
+                        {
+                            id = notice.Id,
+                            type = notice.Type,
+                            title = notice.Title,
+                            body = notice.Body,
+                            sentAt = notice.SentAt
+                        }, ct);
+                    }
+                    catch (Exception pushEx)
+                    {
+                        logger.LogWarning(pushEx, "SignalR push failed for notification {Id}", notice.Id);
+                    }
+                }
             }
             catch (Exception ex)
             {

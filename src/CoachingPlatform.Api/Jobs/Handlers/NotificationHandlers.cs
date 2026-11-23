@@ -18,7 +18,10 @@ public sealed class EnrollmentCreatedHandler : IOutboxEventHandler
         var batchName = payload.GetProperty("Name").GetString();
         db.Notifications.Add(new Notification
         {
-            Channel = NotificationChannel.InApp, Type = EventType,
+            TenantId = tenantId,
+            UserId = studentId,
+            Channel = NotificationChannel.InApp,
+            Type = EventType,
             Title = "Enrollment confirmed",
             Body = $"You are enrolled in {batchName}.",
             SentAt = DateTimeOffset.UtcNow
@@ -51,8 +54,13 @@ public sealed class AttendanceMarkedHandler : IOutboxEventHandler
 
     private static Notification Notice(Guid tenantId, Guid userId, string body, string type) => new()
     {
-        Channel = NotificationChannel.InApp, Type = type, Title = "Attendance",
-        Body = body, SentAt = DateTimeOffset.UtcNow
+        TenantId = tenantId,
+        UserId = userId,
+        Channel = NotificationChannel.InApp,
+        Type = type,
+        Title = "Attendance",
+        Body = body,
+        SentAt = DateTimeOffset.UtcNow
     };
 }
 
@@ -67,7 +75,10 @@ public sealed class AssessmentSubmittedHandler : IOutboxEventHandler
         var max = payload.GetProperty("MaxScore").GetDecimal();
         db.Notifications.Add(new Notification
         {
-            Channel = NotificationChannel.InApp, Type = EventType,
+            TenantId = tenantId,
+            UserId = studentId,
+            Channel = NotificationChannel.InApp,
+            Type = EventType,
             Title = "Assessment submitted",
             Body = $"Your score: {score:0.##} / {max:0.##}",
             SentAt = DateTimeOffset.UtcNow
@@ -86,7 +97,10 @@ public sealed class PaymentReceivedHandler : IOutboxEventHandler
         var amount = payload.GetProperty("Amount").GetDecimal();
         db.Notifications.Add(new Notification
         {
-            Channel = NotificationChannel.InApp, Type = EventType,
+            TenantId = tenantId,
+            UserId = studentId,
+            Channel = NotificationChannel.InApp,
+            Type = EventType,
             Title = "Payment received",
             Body = $"We received {amount:N2}. Thank you.",
             SentAt = DateTimeOffset.UtcNow
@@ -105,8 +119,12 @@ public sealed class InvoiceCreatedHandler : IOutboxEventHandler
         var number = payload.GetProperty("InvoiceNumber").GetString();
         db.Notifications.Add(new Notification
         {
-            Channel = NotificationChannel.InApp, Type = EventType,
-            Title = "New invoice", Body = $"Invoice {number} has been issued.",
+            TenantId = tenantId,
+            UserId = studentId,
+            Channel = NotificationChannel.InApp,
+            Type = EventType,
+            Title = "New invoice",
+            Body = $"Invoice {number} has been issued.",
             SentAt = DateTimeOffset.UtcNow
         });
         return Task.CompletedTask;
@@ -122,8 +140,12 @@ public sealed class TenantProvisionedHandler : IOutboxEventHandler
         var adminId = payload.GetProperty("AdminUserId").GetGuid();
         db.Notifications.Add(new Notification
         {
-            Channel = NotificationChannel.InApp, Type = EventType,
-            Title = "Welcome", Body = "Your coaching center is ready.",
+            TenantId = tenantId,
+            UserId = adminId,
+            Channel = NotificationChannel.InApp,
+            Type = EventType,
+            Title = "Welcome",
+            Body = "Your coaching center is ready.",
             SentAt = DateTimeOffset.UtcNow
         });
         return Task.CompletedTask;

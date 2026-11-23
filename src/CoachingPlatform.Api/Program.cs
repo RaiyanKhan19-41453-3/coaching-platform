@@ -76,7 +76,10 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 });
 
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("postgres", tags: ["ready"]);
-builder.Services.AddSignalR();
+var signalR = builder.Services.AddSignalR();
+var redisConnection = builder.Configuration["Redis:ConnectionString"];
+if (!string.IsNullOrWhiteSpace(redisConnection))
+    signalR.AddStackExchangeRedis(redisConnection, o => o.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("coaching:"));
 
 builder.Services.AddCors(options => options.AddPolicy("web", policy =>
     policy.WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:3000"])
@@ -115,7 +118,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = check => check.Tags.Contains("ready")
 });
 
-app.MapHub<NotificationHub>("/hubs/notifications");
+app.MapHub<NotificationHub>("/hubs/notifications").RequireAuthorization();
 app.MapAuth();
 app.MapApi();
 
