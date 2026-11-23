@@ -46,6 +46,10 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Default: "Host=db;Database=${POSTGRES_DB:-coaching};Username=${POSTGRES_USER:-coaching};Password=${POSTGRES_PASSWORD:-coaching}"
       Redis__ConnectionString: "cache:6379"
+      Jwt__Key: ${JWT_KEY:-dev-only-signing-key-change-this-in-production-1234}
+      Jwt__Issuer: coaching-platform
+      Jwt__Audience: coaching-web
+      Jwt__AccessTokenMinutes: 30
       Cors__Origins__0: "http://localhost:${WEB_PORT:-13000}"
     ports:
       - "${API_PORT:-18081}:8080"

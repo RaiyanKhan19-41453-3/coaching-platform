@@ -6,8 +6,13 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../CoachingPlatform.Infrastructure/CoachingPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="../CoachingPlatform.Application/CoachingPlatform.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.15" />
+    <PackageReference Include="Hangfire" Version="1.8.25" />
+    <PackageReference Include="Hangfire.AspNetCore" Version="1.8.25" />
+    <PackageReference Include="Hangfire.PostgreSql" Version="1.21.1" />
   </ItemGroup>
 </Project>

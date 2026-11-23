@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../CoachingPlatform.Domain/CoachingPlatform.Domain.csproj" />
+    <ProjectReference Include="../CoachingPlatform.Application/CoachingPlatform.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.15" />

@@ -44,3 +44,19 @@ original value in the `WHERE` clause and the fresh value in `SET`. A
 - Read-heavy dashboards should read from CQRS projections, not these write tables.
 - Heavy reports, attendance roll-ups and fee generation belong in Hangfire/Quartz jobs fed by the outbox, not in request threads.
 - Partition candidates once a single tenant gets huge: `AuditLog`, `Notification`, `OutboxMessage` by `TenantId`/time; `ClassSession` by `TenantId` + date range.
+
+
+## Application & background layers
+
+- **Application** owns use cases as MediatR slices. It depends only on the Domain and on small
+  interfaces (`IApplicationDbContext`, `ICurrentUser`, `ITokenGenerator`, `IPasswordHasher`) —
+  never on EF Core or ASP.NET Core directly.
+- **TenantGuardBehavior** refuses `IRequiresTenant` commands when `TenantId` is empty; global
+  query filters then scope every read. Login deliberately calls `IgnoreQueryFilters()` on the
+  small identity tables it must search globally before a tenant is known.
+- **Outbox pattern**: a command writes the business row and the `OutboxMessage` in one
+  transaction. Hangfire drains it in batches of 50; handlers create notifications, and the
+  `ProcessedAt` stamp is saved in the same unit of work. Failures increment `RetryCount`.
+- **Transactional boundaries**: invoice creation computes `Money` totals in the domain value
+  object; payment recording updates the invoice, inserts the payment, posts two ledger rows
+  and queues the event in a single `SaveChangesAsync`.

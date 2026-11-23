@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using CoachingPlatform.Application.Common;
 using CoachingPlatform.Domain.Assessment;
 using CoachingPlatform.Domain.Academics;
 using CoachingPlatform.Domain.Common;
@@ -14,7 +15,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CoachingPlatform.Infrastructure.Persistence;
 
-public sealed class AppDbContext : DbContext
+public sealed class AppDbContext : DbContext, IApplicationDbContext
 {
     private readonly ITenantContext _tenantContext;
     private readonly TimeProvider _timeProvider;

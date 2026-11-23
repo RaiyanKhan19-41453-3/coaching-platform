@@ -30,10 +30,11 @@ Migrations are applied and demo data is seeded automatically by the API at start
 ## Solution layout
 
 ```
-src/CoachingPlatform.Domain        Pure domain: entities, value objects, enums (no EF dependency)
+src/CoachingPlatform.Domain          Pure domain: entities, value objects, enums (no EF dependency)
+src/CoachingPlatform.Application     CQRS command/query slices, MediatR pipeline, FluentValidation, auth commands
 src/CoachingPlatform.Infrastructure  EF Core 10 model, configurations, audit interceptor, Npgsql
-src/CoachingPlatform.Api           Minimal API, tenant resolution, health checks, SignalR hub
-web                                React + Vite + TypeScript, Nginx proxy
+src/CoachingPlatform.Api             Minimal API, JWT, tenant resolution, health checks, SignalR, Hangfire jobs
+web                                  React + Vite + TypeScript, Nginx proxy
 ```
 
 ## Domain modules
@@ -62,6 +63,59 @@ See [docs/DOMAIN-MODEL.md](docs/DOMAIN-MODEL.md) for the design decisions behind
 - **Audit** — `AuditInterceptor` appends an `AuditLog` row with a JSON change set for every insert/update/delete.
 - **Transactional outbox** — `OutboxMessage` is the pattern for reliable domain events (notification dispatch, ledger posting).
 - **Indexing** — every foreign key and high-traffic query path has an explicit index.
+
+## CQRS slices
+
+`ISender.Send(...)` is the only way into the write model. Each slice is one file containing its
+request, FluentValidation validator and handler:
+
+| Area | Commands / queries |
+| --- | --- |
+| Academics | `CreateCourse`, `CreateBatch`, `EnrollStudent`, `GetBatches` |
+| Scheduling | `CreateScheduleRule`, `GenerateSessions`, `MarkAttendance`, `GetSessionAttendance` |
+| Assessment | `CreateAssessment`, `SubmitAttempt` (auto-grades objective types, writes `GradeEntry`) |
+| Finance | `CreateInvoice`, `RecordPayment` (updates invoice, posts double-entry ledger rows) |
+
+MediatR pipeline: `LoggingBehavior` → `TenantGuardBehavior` → `ValidationBehavior` → handler.
+`IRequiresTenant` requests are rejected with 403 when no tenant is resolved.
+
+## Authentication
+
+All `/api/*` business endpoints require a bearer token. Auth endpoints are public:
+
+```bash
+# 1. Provision a center + admin in one transaction
+curl -X POST localhost:18081/api/auth/register-tenant -H 'Content-Type: application/json' \
+  -d '{"name":"Star Coaching","slug":"star","adminEmail":"admin@star.local","adminPassword":"Password123!","adminFirstName":"Alice","adminLastName":"Admin"}'
+
+# 2. Login (tenantSlug optional when the user has one membership)
+curl -X POST localhost:18081/api/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"admin@star.local","password":"Password123!","tenantSlug":"star"}'
+
+# 3. Use the accessToken as: Authorization: Bearer <token>
+curl localhost:18081/api/auth/me -H 'Authorization: Bearer <token>'
+```
+
+- Access tokens are 30-minute HS256 JWTs carrying `sub`, `email`, `tenant_id` and `role` claims.
+- Refresh tokens are stored **hashed**, expire in 14 days and **rotate** on every refresh (old token is revoked).
+- Passwords use PBKDF2-SHA256 with a per-user salt and constant-time comparison.
+- Override `Jwt__Key` in `.env` for anything but local development.
+
+## Background jobs (Hangfire)
+
+Hangfire uses its own `hangfire` schema in the same Postgres database. Recurring jobs:
+
+| Job | Schedule | Purpose |
+| --- | --- | --- |
+| `outbox-dispatch` | every minute | Drains `OutboxMessages`, dispatches to typed handlers, stamps `ProcessedAt`; retries 5× then dead-letters |
+| `refresh-token-cleanup` | daily | Deletes refresh tokens expired more than 30 days ago |
+
+Events handled today: `tenant.provisioned`, `enrollment.created`, `attendance.marked`,
+`assessment.submitted`, `invoice.created`, `payment.received`. Each event and its `ProcessedAt`
+stamp commit in **one transaction**, so a retry cannot duplicate side effects.
+
+Dashboard: http://localhost:18081/jobs (Development only). Manual drain:
+`POST /api/jobs/outbox/dispatch` with a bearer token.
 
 ## EF tooling
 

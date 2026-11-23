@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CoachingPlatform.Application.Common;
 using CoachingPlatform.Infrastructure.Persistence;
 
 namespace CoachingPlatform.Api;
@@ -7,7 +8,7 @@ namespace CoachingPlatform.Api;
 /// Resolves the current tenant from (in priority order) a verified JWT claim, an explicit
 /// X-Tenant-Id header (dev/ops), or the request subdomain. Scoped to one HTTP request.
 /// </summary>
-public sealed class HttpTenantContext : ITenantContext
+public sealed class HttpTenantContext : ITenantContext, ICurrentUser
 {
     private readonly IHttpContextAccessor _accessor;
 
@@ -52,4 +53,14 @@ public sealed class HttpTenantContext : ITenantContext
     public string? UserAgent => Http?.Request.Headers.UserAgent.ToString();
 
     public bool IsSystem => false;
+
+    public IReadOnlyList<string> Roles
+    {
+        get
+        {
+            var direct = Http?.User.FindAll("role").Select(c => c.Value).ToArray();
+            if (direct is { Length: > 0 }) return direct;
+            return Http?.User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray() ?? [];
+        }
+    }
 }

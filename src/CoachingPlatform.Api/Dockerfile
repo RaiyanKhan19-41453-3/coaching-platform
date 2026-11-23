@@ -2,6 +2,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY src/CoachingPlatform.Domain/CoachingPlatform.Domain.csproj src/CoachingPlatform.Domain/
 COPY src/CoachingPlatform.Infrastructure/CoachingPlatform.Infrastructure.csproj src/CoachingPlatform.Infrastructure/
+COPY src/CoachingPlatform.Application/CoachingPlatform.Application.csproj src/CoachingPlatform.Application/
 COPY src/CoachingPlatform.Api/CoachingPlatform.Api.csproj src/CoachingPlatform.Api/
 RUN dotnet restore src/CoachingPlatform.Api/CoachingPlatform.Api.csproj
 COPY src/ ./src/

@@ -1,5 +1,15 @@
 using CoachingPlatform.Api;
+using CoachingPlatform.Application;
+using CoachingPlatform.Application.Common;
+using System.Text;
+using CoachingPlatform.Api.Jobs;
+using CoachingPlatform.Api.Jobs.Handlers;
 using CoachingPlatform.Infrastructure.Persistence;
+using Hangfire;
+using Hangfire.Common;
+using Hangfire.PostgreSql;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using CoachingPlatform.Infrastructure.Persistence.Interceptors;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -10,10 +20,54 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? "Host=db;Database=coaching;Username=coaching;Password=coaching;Include Error Detail=true";
 
+builder.Services.AddApplication();
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+builder.Services.AddScoped<ITokenGenerator, JwtTokenGenerator>();
+
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "dev-only-signing-key-change-this-in-production-1234";
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "coaching-platform",
+            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "coaching-web",
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            NameClaimType = "sub",
+            RoleClaimType = "role"
+        };
+    });
+builder.Services.AddAuthorization();
+
+// ---- Durable background jobs ----
+builder.Services.AddSingleton(new JobDbContextFactory(connectionString));
+builder.Services.AddTransient<OutboxDispatcher>();
+builder.Services.AddTransient<RefreshTokenCleanup>();
+builder.Services.AddScoped<IOutboxEventHandler, EnrollmentCreatedHandler>();
+builder.Services.AddScoped<IOutboxEventHandler, AttendanceMarkedHandler>();
+builder.Services.AddScoped<IOutboxEventHandler, AssessmentSubmittedHandler>();
+builder.Services.AddScoped<IOutboxEventHandler, PaymentReceivedHandler>();
+builder.Services.AddScoped<IOutboxEventHandler, InvoiceCreatedHandler>();
+builder.Services.AddScoped<IOutboxEventHandler, TenantProvisionedHandler>();
+
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(o => o.UseNpgsqlConnection(connectionString)));
+builder.Services.AddHangfireServer();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ITenantContext, HttpTenantContext>();
+builder.Services.AddScoped<HttpTenantContext>();
+builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<HttpTenantContext>());
+builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<HttpTenantContext>());
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<AuditInterceptor>();
+builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 
 builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 {
@@ -30,7 +84,11 @@ builder.Services.AddCors(options => options.AddPolicy("web", policy =>
 
 var app = builder.Build();
 
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseCors("web");
+if (app.Environment.IsDevelopment()) app.UseHangfireDashboard("/jobs", new DashboardOptions { Authorization = [] });
 
 // Resolve subdomain tenants before any DbContext is used in the pipeline.
 app.Use(async (context, next) =>
@@ -58,6 +116,8 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 
 app.MapHub<NotificationHub>("/hubs/notifications");
+app.MapAuth();
+app.MapApi();
 
 // Bootstrap schema + seed data with retry (Postgres may still be starting).
 using (var scope = app.Services.CreateScope())
@@ -79,5 +139,10 @@ using (var scope = app.Services.CreateScope())
         }
     }
 }
+
+RecurringJob.AddOrUpdate<OutboxDispatcher>("outbox-dispatch",
+    job => job.DispatchAsync(), "*/1 * * * *");
+RecurringJob.AddOrUpdate<RefreshTokenCleanup>("refresh-token-cleanup",
+    job => job.CleanupAsync(), Cron.Daily);
 
 app.Run();

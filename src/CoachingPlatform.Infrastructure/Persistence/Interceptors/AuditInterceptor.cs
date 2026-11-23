@@ -46,6 +46,7 @@ public sealed class AuditInterceptor : SaveChangesInterceptor
         foreach (var entry in db.ChangeTracker.Entries())
         {
             if (entry.State == EntityState.Unchanged || entry.State == EntityState.Detached) continue;
+            if (entry.Metadata.IsOwned()) continue; // owned value objects (Money) are not aggregates
 
             if (entry.Entity is ITenantEntity te && entry.State == EntityState.Added && te.TenantId == Guid.Empty)
                 te.TenantId = _context.TenantId;
@@ -77,11 +78,11 @@ public sealed class AuditInterceptor : SaveChangesInterceptor
 
         foreach (var entry in db.ChangeTracker.Entries().ToList())
         {
+            if (entry.Metadata.IsOwned()) continue;
             if (SkipAudit.Contains(entry.Entity.GetType().Name)) continue;
             if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) continue;
 
             var changes = BuildChangeSet(entry);
-            if (changes is null && entry.State != EntityState.Deleted) continue;
 
             var tenantId = entry.Entity is ITenantEntity t ? t.TenantId : _context.TenantId;
             db.AuditLogs.Add(new AuditLog
@@ -105,8 +106,12 @@ public sealed class AuditInterceptor : SaveChangesInterceptor
         var parts = new Dictionary<string, object?>();
         foreach (var p in entry.Properties)
         {
-            if (p.IsModified)
-                parts[p.Metadata.Name] = new { before = p.OriginalValue, after = p.CurrentValue };
+            if (entry.State == EntityState.Added || p.IsModified)
+                parts[p.Metadata.Name] = new
+                {
+                    before = entry.State == EntityState.Added ? null : p.OriginalValue,
+                    after = p.CurrentValue
+                };
         }
         return parts.Count == 0 ? null : JsonSerializer.Serialize(parts);
     }
