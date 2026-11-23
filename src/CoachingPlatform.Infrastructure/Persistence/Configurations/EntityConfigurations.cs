@@ -225,6 +225,8 @@ public sealed class ClassSessionConfiguration : TenantEntityConfiguration<ClassS
         base.Configure(b);
         b.HasIndex(e => new { e.TenantId, e.StartUtc });
         b.HasIndex(e => new { e.BatchId, e.StartUtc });
+        b.HasIndex(e => new { e.ScheduleRuleId, e.StartUtc })
+         .IsUnique().HasFilter("\"ScheduleRuleId\" IS NOT NULL AND \"IsDeleted\" = false");
     }
 }
 
@@ -356,6 +358,8 @@ public sealed class PaymentConfiguration : TenantEntityConfiguration<Payment>
         base.Configure(b);
         b.HasIndex(e => e.GatewayTransactionId);
         b.HasIndex(e => new { e.StudentId, e.PaidAt });
+        b.HasIndex(e => new { e.Gateway, e.GatewayTransactionId })
+         .IsUnique().HasFilter("\"GatewayTransactionId\" IS NOT NULL AND \"IsDeleted\" = false");
     }
 }
 
@@ -588,6 +592,7 @@ public sealed class RefreshTokenConfiguration : GlobalEntityConfiguration<Refres
         base.Configure(b);
         b.HasIndex(e => e.TokenHash).IsUnique();
         b.HasIndex(e => e.UserId);
+        b.Property(e => e.RowVersion).IsConcurrencyToken().ValueGeneratedNever();
     }
 }
 

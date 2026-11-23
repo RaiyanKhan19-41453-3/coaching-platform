@@ -167,8 +167,8 @@ var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();  // after authentication so the global limit is keyed by tenant
 app.UseAuthorization();
 app.UseCors("web");
 if (app.Environment.IsDevelopment()) app.UseHangfireDashboard("/jobs", new DashboardOptions { Authorization = [] });

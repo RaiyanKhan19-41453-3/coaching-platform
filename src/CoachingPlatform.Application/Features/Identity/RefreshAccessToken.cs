@@ -1,4 +1,5 @@
 using CoachingPlatform.Application.Common;
+using CoachingPlatform.Domain.Common;
 using CoachingPlatform.Domain.Identity;
 using FluentValidation;
 using MediatR;
@@ -27,6 +28,10 @@ public sealed class RefreshAccessTokenHandler(
 
         var user = await db.Set<User>().FirstOrDefaultAsync(u => u.Id == stored.UserId, ct)
                    ?? throw new AppException("Unknown account.", 401, "Unauthorized");
+        if (user.Status != UserStatus.Active)
+            throw new AppException("Account is not active.", 403, "Forbidden");
+        if (user.LockedUntil.HasValue && user.LockedUntil > DateTimeOffset.UtcNow)
+            throw new AppException("Account is temporarily locked.", 423, "Locked");
         var tenantId = stored.TenantId;
         if (!tenantId.HasValue)
         {
@@ -44,7 +49,14 @@ public sealed class RefreshAccessTokenHandler(
         var result = await issuer.IssueAsync(user, tenantId.Value, roles, ct);
         stored.RevokedAt = DateTimeOffset.UtcNow;
         stored.ReplacedByTokenHash = TokenHasher.Sha256(result.RefreshToken);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new AppException("Refresh token was already used.", 401, "Unauthorized");
+        }
         return result;
     }
 }

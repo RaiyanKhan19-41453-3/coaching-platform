@@ -110,11 +110,13 @@ public sealed class DeleteAssetHandler(IApplicationDbContext db, IObjectStorage 
     {
         var asset = await db.Set<Asset>().FirstOrDefaultAsync(a => a.Id == request.AssetId, ct)
                     ?? throw new NotFoundException(nameof(Asset), request.AssetId);
-        await storage.RemoveAsync(asset.StorageKey, ct);
+        // Mark the row first: a storage failure must not leave an active asset whose bytes
+        // are already gone. A leftover object is harmless and can be swept later.
         asset.IsDeleted = true;
         asset.DeletedAt = DateTimeOffset.UtcNow;
         asset.DeletedBy = current.UserId;
         await db.SaveChangesAsync(ct);
+        await storage.RemoveAsync(asset.StorageKey, ct);
         return true;
     }
 }

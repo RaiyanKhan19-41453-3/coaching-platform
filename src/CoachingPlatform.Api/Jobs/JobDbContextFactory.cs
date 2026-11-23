@@ -10,6 +10,8 @@ namespace CoachingPlatform.Api.Jobs;
 /// </summary>
 public sealed class JobDbContextFactory(string connectionString)
 {
+    public string ConnectionString { get; } = connectionString;
+
     private readonly DbContextOptions<AppDbContext> _options = new DbContextOptionsBuilder<AppDbContext>()
         .UseNpgsql(connectionString, o => o.EnableRetryOnFailure(3, TimeSpan.FromSeconds(2), null))
         .Options;

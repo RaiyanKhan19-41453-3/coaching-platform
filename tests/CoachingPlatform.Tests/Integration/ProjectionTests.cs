@@ -91,4 +91,43 @@ public class ProjectionTests(DatabaseFixture fixture) : IntegrationTestBase(fixt
         Assert.Equal(4000m, dashboard.Collected);
         Assert.Equal(0, dashboard.Batches);
     }
+
+    [Fact]
+    public async Task AttendanceStat_CountsUnmarkedSessionsAsAbsent()
+    {
+        await NewTenantAsync();
+        var student = await NewUserAsync();
+        var (courseId, yearId) = await NewCourseAndYearAsync();
+        var batchId = await Sender.Send(new CreateBatch(courseId, yearId, null, "B", "B-UNMARKED",
+            new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 31), 30));
+        for (var i = 0; i < 4; i++)
+        {
+            var session = new ClassSession
+            {
+                BatchId = batchId,
+                StartUtc = new DateTimeOffset(2026, 11, 3 + i, 10, 0, 0, TimeSpan.Zero),
+                EndUtc = new DateTimeOffset(2026, 11, 3 + i, 12, 0, 0, TimeSpan.Zero),
+                Status = SessionStatus.Completed
+            };
+            Db.ClassSessions.Add(session);
+            await Db.SaveChangesAsync();
+            if (i == 0)
+            {
+                Db.Attendances.Add(new Attendance
+                {
+                    SessionId = session.Id, StudentId = student, Status = AttendanceStatus.Present
+                });
+                await Db.SaveChangesAsync();
+            }
+        }
+
+        await Db.RefreshAttendanceAsync(Ambient.TenantId, student, batchId, new DateOnly(2026, 11, 15));
+        await Db.SaveChangesAsync();
+
+        var stat = await Db.AttendanceStats.SingleAsync(x => x.StudentId == student);
+        Assert.Equal(4, stat.Sessions);
+        Assert.Equal(1, stat.Present);
+        Assert.Equal(3, stat.Absent);
+        Assert.Equal(25m, stat.AttendancePercent);
+    }
 }

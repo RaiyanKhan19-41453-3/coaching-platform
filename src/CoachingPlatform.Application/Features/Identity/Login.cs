@@ -43,7 +43,8 @@ public sealed class LoginHandler(
                 user.LockedUntil = now.AddMinutes(15);
                 user.FailedLoginAttempts = 0;
             }
-            await db.SaveChangesAsync(ct);
+            try { await db.SaveChangesAsync(ct); }
+            catch (DbUpdateConcurrencyException) { /* another attempt won the race */ }
             throw new AppException("Invalid email or password.", 401, "Unauthorized");
         }
 
@@ -75,7 +76,14 @@ public sealed class LoginHandler(
             .Where(r => r.UserId == user.Id && r.TenantId == tenantId && (r.ExpiresAt == null || r.ExpiresAt > DateTimeOffset.UtcNow))
             .Select(r => r.Role.Name).ToListAsync(ct);
 
-        return await issuer.IssueAsync(user, tenantId, roles, ct);
+        try
+        {
+            return await issuer.IssueAsync(user, tenantId, roles, ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("Account changed concurrently; please sign in again.");
+        }
     }
 
 }

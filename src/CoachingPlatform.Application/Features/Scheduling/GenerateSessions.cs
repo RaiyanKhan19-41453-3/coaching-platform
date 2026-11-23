@@ -84,7 +84,14 @@ public sealed class GenerateSessionsHandler(IApplicationDbContext db, ICurrentUs
                 PayloadJson = JsonSerializer.Serialize(new { rule.Id, rule.BatchId, Count = created }),
                 OccurredAt = DateTimeOffset.UtcNow
             });
-            await db.SaveChangesAsync(ct);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException)
+            {
+                throw new ConflictException("Sessions changed concurrently; please retry.");
+            }
         }
         return created;
     }

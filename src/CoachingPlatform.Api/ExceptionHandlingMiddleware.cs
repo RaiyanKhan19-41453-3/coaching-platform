@@ -1,5 +1,6 @@
 using CoachingPlatform.Application.Common;
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 
 namespace CoachingPlatform.Api;
 
@@ -15,6 +16,11 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
         {
             await Write(context, 400, "Validation failed",
                 ex.Errors.Select(e => new { field = e.PropertyName, error = e.ErrorMessage }));
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogWarning(ex, "Database constraint violation on {Path}", context.Request.Path);
+            await Write(context, 409, "Conflict", new { error = "The change conflicts with existing data." });
         }
         catch (AppException ex)
         {

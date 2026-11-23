@@ -65,4 +65,29 @@ public class FinanceTests(DatabaseFixture fixture) : IntegrationTestBase(fixture
             Sender.Send(new RecordPayment(invoiceId, 1001m, "BDT", PaymentMethod.Cash, null)));
         Assert.Empty(await Db.Payments.ToListAsync());
     }
+
+    [Fact]
+    public async Task Invoice_RejectsNegativeDiscountAndTaxAbove100()
+    {
+        await NewTenantAsync();
+        var student = await NewUserAsync();
+        var lines = new[] { new InvoiceLineInput("Fee", 1, 100m, "BDT") };
+        await Assert.ThrowsAsync<FluentValidation.ValidationException>(() =>
+            Sender.Send(new CreateInvoice(student, null, lines, -1m, 0m)));
+        await Assert.ThrowsAsync<FluentValidation.ValidationException>(() =>
+            Sender.Send(new CreateInvoice(student, null, lines, 0m, 101m)));
+    }
+
+    [Fact]
+    public async Task Payment_DuplicateGatewayTransactionIsRejected()
+    {
+        await NewTenantAsync();
+        var student = await NewUserAsync();
+        var invoiceId = await Sender.Send(new CreateInvoice(student, null,
+            new[] { new InvoiceLineInput("Fee", 1, 2000m, "BDT") }, 0m, 0m));
+        await Sender.Send(new RecordPayment(invoiceId, 1000m, "BDT", PaymentMethod.OnlineGateway, "txn-dup"));
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            Sender.Send(new RecordPayment(invoiceId, 500m, "BDT", PaymentMethod.OnlineGateway, "txn-dup")));
+        Assert.Equal(1, await Db.Payments.CountAsync());
+    }
 }

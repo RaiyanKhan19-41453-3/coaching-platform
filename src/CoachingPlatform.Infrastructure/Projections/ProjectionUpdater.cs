@@ -21,13 +21,15 @@ public static class ProjectionUpdater
         period = FirstOfMonth(period);
         var start = ToUtc(period);
         var end = ToUtc(period.AddMonths(1));
-        var rows = await (from a in db.Attendances
-                          join s in db.ClassSessions on a.SessionId equals s.Id
-                          where a.StudentId == studentId && s.BatchId == batchId
-                                && s.StartUtc >= start && s.StartUtc < end
-                          select new { a.Status, s.Id }).ToListAsync(ct);
+        var sessionIds = await db.ClassSessions
+            .Where(s => s.BatchId == batchId && s.StartUtc >= start && s.StartUtc < end)
+            .Select(s => s.Id).ToListAsync(ct);
+        var rows = await db.Attendances
+            .Where(a => a.StudentId == studentId && sessionIds.Contains(a.SessionId))
+            .Select(a => new { a.Status, a.SessionId }).ToListAsync(ct);
 
-        var sessions = rows.Select(r => r.Id).Distinct().Count();
+        // Unmarked sessions still count as absent for the average.
+        var sessions = sessionIds.Count;
         var present = rows.Count(r => r.Status == AttendanceStatus.Present);
         var late = rows.Count(r => r.Status == AttendanceStatus.Late);
         var stat = await db.AttendanceStats.FirstOrDefaultAsync(
@@ -42,7 +44,7 @@ public static class ProjectionUpdater
         }
         stat.Sessions = sessions;
         stat.Present = present;
-        stat.Absent = rows.Count(r => r.Status == AttendanceStatus.Absent);
+        stat.Absent = Math.Max(0, sessions - present - late - rows.Count(r => r.Status == AttendanceStatus.Excused));
         stat.Late = late;
         stat.Excused = rows.Count(r => r.Status == AttendanceStatus.Excused);
         stat.AttendancePercent = sessions == 0

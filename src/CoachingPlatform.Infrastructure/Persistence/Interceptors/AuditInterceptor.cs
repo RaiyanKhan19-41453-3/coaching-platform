@@ -101,11 +101,17 @@ public sealed class AuditInterceptor : SaveChangesInterceptor
         }
     }
 
+    private static readonly HashSet<string> Sensitive = new(StringComparer.Ordinal)
+    {
+        "PasswordHash", "MfaSecret", "TokenHash", "ReplacedByTokenHash", "Checksum"
+    };
+
     private static string? BuildChangeSet(EntityEntry entry)
     {
         var parts = new Dictionary<string, object?>();
         foreach (var p in entry.Properties)
         {
+            if (Sensitive.Contains(p.Metadata.Name)) continue;
             if (entry.State == EntityState.Added || p.IsModified)
                 parts[p.Metadata.Name] = new
                 {

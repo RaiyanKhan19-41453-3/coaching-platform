@@ -53,6 +53,8 @@ public sealed class EnrollStudentHandler(IApplicationDbContext db, ICurrentUser 
             EnrolledAt = DateTimeOffset.UtcNow,
             RollNumber = $"{batch.Code}-{active + 1:000}"
         };
+        // Force an UPDATE of the batch row so its concurrency token guards capacity.
+        db.Set<Batch>().Entry(batch).Property(b => b.SyllabusVersion).IsModified = true;
         db.Set<Enrollment>().Add(enrollment);
         db.Set<OutboxMessage>().Add(new OutboxMessage
         {
@@ -64,7 +66,14 @@ public sealed class EnrollStudentHandler(IApplicationDbContext db, ICurrentUser 
             }),
             OccurredAt = DateTimeOffset.UtcNow
         });
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("Batch capacity changed concurrently; please retry.");
+        }
         return enrollment.Id;
     }
 }

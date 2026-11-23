@@ -4,6 +4,7 @@ using CoachingPlatform.Application.Outbox;
 using CoachingPlatform.Domain.Common;
 using CoachingPlatform.Domain.Platform;
 using CoachingPlatform.Domain.Scheduling;
+using CoachingPlatform.Domain.Academics;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -36,7 +37,14 @@ public sealed class MarkAttendanceHandler(IApplicationDbContext db, ICurrentUser
         var session = await db.Set<ClassSession>().FirstOrDefaultAsync(s => s.Id == request.SessionId, ct)
                       ?? throw new NotFoundException(nameof(ClassSession), request.SessionId);
 
-        var studentIds = request.Records.Select(r => r.StudentId).ToList();
+        var studentIds = request.Records.Select(r => r.StudentId).Distinct().ToList();
+        var enrolledIds = await db.Set<Domain.Academics.Enrollment>()
+            .Where(e => e.BatchId == session.BatchId && studentIds.Contains(e.StudentId) &&
+                        e.Status != EnrollmentStatus.Dropped && e.Status != EnrollmentStatus.Transferred)
+            .Select(e => e.StudentId).ToListAsync(ct);
+        var unknown = studentIds.Except(enrolledIds).ToList();
+        if (unknown.Count > 0)
+            throw new ConflictException($"Students {string.Join(", ", unknown)} are not enrolled in this batch.");
         var existing = await db.Set<Attendance>()
             .Where(a => a.SessionId == session.Id && studentIds.Contains(a.StudentId))
             .ToDictionaryAsync(a => a.StudentId, ct);

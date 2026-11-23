@@ -4,6 +4,7 @@ using CoachingPlatform.Application.Outbox;
 using CoachingPlatform.Domain.Common;
 using CoachingPlatform.Domain.Finance;
 using CoachingPlatform.Domain.Identity;
+using CoachingPlatform.Domain.Tenancy;
 using CoachingPlatform.Domain.Platform;
 using FluentValidation;
 using MediatR;
@@ -21,6 +22,8 @@ public sealed class CreateInvoiceValidator : AbstractValidator<CreateInvoice>
     {
         RuleFor(x => x.StudentId).NotEmpty();
         RuleFor(x => x.Lines).NotEmpty();
+        RuleFor(x => x.Discount).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.TaxPercent).InclusiveBetween(0m, 100m);
         RuleForEach(x => x.Lines).ChildRules(l =>
         {
             l.RuleFor(x => x.Description).NotEmpty().MaximumLength(300);
@@ -39,7 +42,12 @@ public sealed class CreateInvoiceHandler(IApplicationDbContext db, ICurrentUser 
         if (!await db.Set<User>().AnyAsync(u => u.Id == request.StudentId, ct))
             throw new NotFoundException(nameof(User), request.StudentId);
 
+        var tenant = await db.Set<Tenant>().FirstOrDefaultAsync(t => t.Id == current.TenantId, ct)
+                     ?? throw new NotFoundException(nameof(Tenant), current.TenantId);
+
         var currency = request.Lines[0].Currency.ToUpperInvariant();
+        if (currency != tenant.DefaultCurrency.ToUpperInvariant())
+            throw new ConflictException($"This center invoices in {tenant.DefaultCurrency}.");
         if (request.Lines.Any(l => l.Currency.ToUpperInvariant() != currency))
             throw new ConflictException("All invoice lines must use the same currency.");
 
@@ -54,6 +62,15 @@ public sealed class CreateInvoiceHandler(IApplicationDbContext db, ICurrentUser 
             TaxPercent = request.TaxPercent,
             Order = i
         }).ToList();
+
+        if (request.EnrollmentId.HasValue)
+        {
+            var enrollment = await db.Set<Domain.Academics.Enrollment>()
+                .FirstOrDefaultAsync(e => e.Id == request.EnrollmentId.Value, ct)
+                ?? throw new NotFoundException(nameof(Domain.Academics.Enrollment), request.EnrollmentId.Value);
+            if (enrollment.StudentId != request.StudentId)
+                throw new ConflictException("Enrollment belongs to a different student.");
+        }
 
         var subTotal = lines.Aggregate(Money.Zero(currency), (sum, l) => sum.Add(l.Amount));
         var discount = new Money(decimal.Round(Math.Min(request.Discount, subTotal.Amount), 2), currency);

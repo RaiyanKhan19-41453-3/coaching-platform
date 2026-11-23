@@ -85,7 +85,7 @@ public sealed class UserRole : TenantEntity
 }
 
 /// <summary>Rotating refresh tokens; hashed at rest.</summary>
-public sealed class RefreshToken : GlobalEntity
+public sealed class RefreshToken : GlobalEntity, IConcurrent
 {
     public Guid UserId { get; set; }
     public User User { get; set; } = default!;
@@ -96,6 +96,7 @@ public sealed class RefreshToken : GlobalEntity
     public string? ReplacedByTokenHash { get; set; }
     public string? CreatedByIp { get; set; }
     public string? UserAgent { get; set; }
+    public byte[] RowVersion { get; set; } = [];
 }
 
 /// <summary>Parent/guardian link. Permission flags support granular parent-portal access.</summary>

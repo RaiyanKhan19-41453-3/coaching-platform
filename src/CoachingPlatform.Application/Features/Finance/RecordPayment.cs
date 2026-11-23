@@ -33,6 +33,9 @@ public sealed class RecordPaymentHandler(IApplicationDbContext db, ICurrentUser 
         var currency = request.Currency.ToUpperInvariant();
         if (invoice.Total.Currency != currency)
             throw new ConflictException($"Invoice currency is {invoice.Total.Currency}, got {currency}.");
+        if (!string.IsNullOrWhiteSpace(request.GatewayTransactionId) &&
+            await db.Set<Payment>().AnyAsync(p => p.GatewayTransactionId == request.GatewayTransactionId, ct))
+            throw new ConflictException("Gateway transaction was already recorded.");
         if (invoice.Status is InvoiceStatus.Void or InvoiceStatus.Refunded)
             throw new ConflictException("Cannot pay a void or refunded invoice.");
 
@@ -82,7 +85,18 @@ public sealed class RecordPaymentHandler(IApplicationDbContext db, ICurrentUser 
             { PaymentId = payment.Id, InvoiceId = invoice.Id, invoice.StudentId, PaidAt = postedAt, Amount = amount.Amount, currency }),
             OccurredAt = postedAt
         });
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("Invoice changed concurrently; please retry.");
+        }
+        catch (DbUpdateException)
+        {
+            throw new ConflictException("Payment could not be recorded (possible duplicate transaction).");
+        }
         return payment.Id;
     }
 }

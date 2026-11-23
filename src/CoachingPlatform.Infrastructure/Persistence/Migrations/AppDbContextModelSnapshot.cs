@@ -2692,6 +2692,10 @@ namespace CoachingPlatform.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("InvoiceId");
 
+                    b.HasIndex("Gateway", "GatewayTransactionId")
+                        .IsUnique()
+                        .HasFilter("\"GatewayTransactionId\" IS NOT NULL AND \"IsDeleted\" = false");
+
                     b.HasIndex("StudentId", "PaidAt");
 
                     b.ToTable("Payments");
@@ -2912,6 +2916,11 @@ namespace CoachingPlatform.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset?>("RevokedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
 
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid");
@@ -3846,13 +3855,15 @@ namespace CoachingPlatform.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RoomId");
 
-                    b.HasIndex("ScheduleRuleId");
-
                     b.HasIndex("TeacherId");
 
                     b.HasIndex("TopicId");
 
                     b.HasIndex("BatchId", "StartUtc");
+
+                    b.HasIndex("ScheduleRuleId", "StartUtc")
+                        .IsUnique()
+                        .HasFilter("\"ScheduleRuleId\" IS NOT NULL AND \"IsDeleted\" = false");
 
                     b.HasIndex("TenantId", "StartUtc");
 

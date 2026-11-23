@@ -4,6 +4,7 @@ using CoachingPlatform.Domain.Platform;
 using CoachingPlatform.Infrastructure.Persistence;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace CoachingPlatform.Api.Jobs;
 
@@ -22,7 +23,26 @@ public sealed class OutboxDispatcher(
 
     public async Task DispatchAsync() => await DispatchCoreAsync(CancellationToken.None);
 
+    /// <summary>
+    /// A Postgres transaction-scoped advisory lock serialises dispatchers (recurring job plus
+    /// manual trigger) so the same message can never be handled twice concurrently.
+    /// </summary>
     public async Task DispatchCoreAsync(CancellationToken ct)
+    {
+        await using var connection = new NpgsqlConnection(factory.ConnectionString);
+        await connection.OpenAsync(ct);
+        await using var transaction = await connection.BeginTransactionAsync(ct);
+        await using (var lockCommand = new NpgsqlCommand(
+            "SELECT pg_advisory_xact_lock(hashtext('coaching-outbox-dispatch'))", connection, (NpgsqlTransaction)transaction))
+        {
+            await lockCommand.ExecuteNonQueryAsync(ct);
+        }
+
+        await DispatchUnlockedAsync(ct);
+        await transaction.CommitAsync(ct);
+    }
+
+    private async Task DispatchUnlockedAsync(CancellationToken ct)
     {
         var byType = handlers.ToDictionary(h => h.EventType, StringComparer.Ordinal);
         await using var scan = factory.Create(Guid.Empty);
