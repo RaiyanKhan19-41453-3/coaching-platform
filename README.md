@@ -208,6 +208,23 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 CI (`.github/workflows/ci.yml`) runs the containerized test suite, builds both images and
 smoke-tests the API image against throwaway Postgres/Redis containers.
 
+## Additional feature modules
+
+- **Finance**: refunds with reversing ledger entries, fee structures, installment generation,
+  discount codes and scholarships applied to invoices, invoice PDF export
+- **Academics**: enrollment status changes (including waitlist promotion with capacity guard),
+  teacher assignment/removal, student data export and erasure
+- **Scheduling**: leave-request create/review workflow
+- **Assessment**: question bank CRUD, attach questions to papers, manual grading of essay/coding
+  answers that recalculates attempts and gradebook rows
+- **Communication**: announcements, direct conversations/messages, notification preferences,
+  notification inbox with read tracking, email/SMS delivery worker over the outbox (SMTP +
+  HTTP webhook, optional)
+- **Parent portal**: guardian-scoped child list and summary (attendance, fees, grades)
+- **Content**: learning-material attachment/publishing linked to assets or external URLs
+- **Admin**: audit-log query, feature flags, cross-entity search, report-card PDF export
+- **Platform**: Redis-backed global rate limit shared across replicas
+
 ## Architecture
 
 Conventional layered architecture: **Controllers → application service interfaces → MediatR

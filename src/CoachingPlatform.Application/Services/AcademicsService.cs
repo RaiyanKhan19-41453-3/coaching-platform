@@ -1,6 +1,7 @@
 using CoachingPlatform.Application.Common;
 using CoachingPlatform.Application.DTOs.Academics;
 using CoachingPlatform.Application.Features.Academics;
+using CoachingPlatform.Application.Features.Admin;
 using MediatR;
 
 namespace CoachingPlatform.Application.Services;
@@ -11,6 +12,11 @@ public interface IAcademicsService
     Task<Guid> CreateBatchAsync(CreateBatchRequest request, CancellationToken ct = default);
     Task<PagedResult<BatchResponse>> GetBatchesAsync(BatchQuery query, CancellationToken ct = default);
     Task<Guid> EnrollStudentAsync(Guid batchId, EnrollStudentRequest request, CancellationToken ct = default);
+    Task<bool> ChangeEnrollmentStatusAsync(Guid id, ChangeEnrollmentStatusRequest request, CancellationToken ct = default);
+    Task<Guid> AssignTeacherAsync(Guid batchId, AssignTeacherRequest request, CancellationToken ct = default);
+    Task<bool> RemoveTeacherAsync(Guid batchId, Guid teacherId, CancellationToken ct = default);
+    Task<string> ExportStudentDataAsync(Guid studentId, CancellationToken ct = default);
+    Task<bool> EraseStudentDataAsync(Guid studentId, CancellationToken ct = default);
 }
 
 public sealed class AcademicsService(ISender sender) : IAcademicsService
@@ -34,4 +40,20 @@ public sealed class AcademicsService(ISender sender) : IAcademicsService
 
     public Task<Guid> EnrollStudentAsync(Guid batchId, EnrollStudentRequest request, CancellationToken ct)
         => sender.Send(new EnrollStudent(batchId, request.StudentId), ct);
+
+    public Task<bool> ChangeEnrollmentStatusAsync(Guid id, ChangeEnrollmentStatusRequest request, CancellationToken ct)
+        => sender.Send(new ChangeEnrollmentStatus(id, request.Status, request.Reason), ct);
+
+    public Task<Guid> AssignTeacherAsync(Guid batchId, AssignTeacherRequest request, CancellationToken ct)
+        => sender.Send(new AssignTeacher(batchId, request.TeacherId, request.IsLead), ct);
+
+    public Task<bool> RemoveTeacherAsync(Guid batchId, Guid teacherId, CancellationToken ct)
+        => sender.Send(new RemoveTeacher(batchId, teacherId), ct);
+
+    public Task<string> ExportStudentDataAsync(Guid studentId, CancellationToken ct)
+        => sender.Send(new ExportStudentData(studentId), ct);
+
+    public Task<bool> EraseStudentDataAsync(Guid studentId, CancellationToken ct)
+        => sender.Send(new EraseStudentData(studentId), ct);
+
 }

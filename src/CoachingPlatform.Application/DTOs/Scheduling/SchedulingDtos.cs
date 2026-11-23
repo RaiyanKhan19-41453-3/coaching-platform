@@ -17,3 +17,6 @@ public sealed record MarkAttendanceRequest(IReadOnlyList<AttendanceMarkItem> Rec
 public sealed record AttendanceResponse(
     Guid StudentId, AttendanceStatus Status, AttendanceMethod Method,
     DateTimeOffset? CheckedInAt, int MinutesLate, string? Note);
+
+public sealed record CreateLeaveRequestRequest(Guid StudentId, DateOnly StartDate, DateOnly EndDate, string Reason);
+public sealed record ReviewLeaveRequestRequest(bool Approve, string? Note);

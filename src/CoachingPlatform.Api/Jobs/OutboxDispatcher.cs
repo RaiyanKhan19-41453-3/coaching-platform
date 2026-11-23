@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CoachingPlatform.Application.Outbox;
 using CoachingPlatform.Domain.Communication;
 using CoachingPlatform.Domain.Platform;
 using CoachingPlatform.Infrastructure.Persistence;
@@ -75,6 +76,18 @@ public sealed class OutboxDispatcher(
 
                 message.ProcessedAt = DateTimeOffset.UtcNow;
                 await db.SaveChangesAsync(ct);
+
+                // Queue durable email/SMS delivery for every notification created here.
+                foreach (var notice in pushed)
+                    db.OutboxMessages.Add(new OutboxMessage
+                    {
+                        TenantId = notice.TenantId,
+                        EventType = EventTypes.NotificationCreated,
+                        PayloadJson = JsonSerializer.Serialize(new
+                        { notice.UserId, notice.Type, notice.Title }),
+                        OccurredAt = DateTimeOffset.UtcNow
+                    });
+                if (pushed.Count > 0) await db.SaveChangesAsync(ct);
 
                 // Push only after the transaction commits: a transport failure must not
                 // trigger a retry that would duplicate the notification row.

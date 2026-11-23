@@ -30,4 +30,17 @@ public sealed class AssetsController(IAssetService assets) : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken ct)
         => Ok(new { deleted = await assets.DeleteAsync(id, ct) });
+
+    [HttpPost("materials")]
+    public async Task<IActionResult> AttachMaterial([FromBody] AttachMaterialRequest request, CancellationToken ct)
+        => Ok(await assets.AttachMaterialAsync(request, ct));
+
+    [HttpGet("materials")]
+    public async Task<IActionResult> ListMaterials([FromQuery] Guid? batchId, [FromQuery] Guid? topicId, CancellationToken ct)
+        => Ok(await assets.ListMaterialsAsync(batchId, topicId, ct));
+
+    [HttpPost("materials/{materialId:guid}/publish")]
+    public async Task<IActionResult> PublishMaterial([FromRoute] Guid materialId,
+        [FromBody] PublishMaterialRequest request, CancellationToken ct)
+        => Ok(new { published = await assets.PublishMaterialAsync(materialId, request, ct) });
 }

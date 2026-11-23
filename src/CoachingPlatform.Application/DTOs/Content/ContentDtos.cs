@@ -1,3 +1,4 @@
+using CoachingPlatform.Domain.Academics;
 using CoachingPlatform.Domain.Common;
 
 namespace CoachingPlatform.Application.DTOs.Content;
@@ -13,3 +14,11 @@ public sealed record AssetResponse(
     AssetKind Kind, ScanStatus ScanStatus, bool IsPublic, DateTimeOffset CreatedAt);
 
 public sealed record DownloadUrlResponse(string Url);
+
+public sealed record AttachMaterialRequest(Guid? BatchId, Guid? TopicId, string Title,
+    MaterialType Type, Guid? AssetId, string? ExternalUrl, int? DurationMinutes, int Order);
+
+public sealed record MaterialResponse(Guid Id, string Title, MaterialType Type,
+    string? StorageKey, string? ExternalUrl, int? DurationMinutes, bool IsPublished);
+
+public sealed record PublishMaterialRequest(bool Publish);

@@ -68,13 +68,13 @@ public sealed class RecordPaymentHandler(IApplicationDbContext db, ICurrentUser 
         db.Set<LedgerEntry>().Add(new LedgerEntry
         { TenantId = current.TenantId,
             AccountCode = "1000-CASH", Description = $"Payment {payment.Id}",
-            Debit = amount, Credit = Money.Zero(currency),
+            Debit = new Money(amount.Amount, currency), Credit = Money.Zero(currency),
             SourceType = nameof(Payment), SourceId = payment.Id, PostedAt = postedAt
         });
         db.Set<LedgerEntry>().Add(new LedgerEntry
         { TenantId = current.TenantId,
             AccountCode = "4000-FEES", Description = $"Payment {payment.Id}",
-            Debit = Money.Zero(currency), Credit = amount,
+            Debit = Money.Zero(currency), Credit = new Money(amount.Amount, currency),
             SourceType = nameof(Payment), SourceId = payment.Id, PostedAt = postedAt
         });
         db.Set<OutboxMessage>().Add(new OutboxMessage

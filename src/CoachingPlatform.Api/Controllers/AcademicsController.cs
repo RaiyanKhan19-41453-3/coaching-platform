@@ -29,4 +29,26 @@ public sealed class AcademicsController(IAcademicsService academics) : Controlle
     public async Task<IActionResult> Enroll([FromRoute] Guid batchId,
         [FromBody] EnrollStudentRequest request, CancellationToken ct)
         => Ok(await academics.EnrollStudentAsync(batchId, request, ct));
+
+    [HttpPost("enrollments/{id:guid}/status")]
+    public async Task<IActionResult> ChangeStatus([FromRoute] Guid id,
+        [FromBody] ChangeEnrollmentStatusRequest request, CancellationToken ct)
+        => Ok(new { changed = await academics.ChangeEnrollmentStatusAsync(id, request, ct) });
+
+    [HttpPost("batches/{batchId:guid}/teachers")]
+    public async Task<IActionResult> AssignTeacher([FromRoute] Guid batchId,
+        [FromBody] AssignTeacherRequest request, CancellationToken ct)
+        => Ok(await academics.AssignTeacherAsync(batchId, request, ct));
+
+    [HttpDelete("batches/{batchId:guid}/teachers/{teacherId:guid}")]
+    public async Task<IActionResult> RemoveTeacher([FromRoute] Guid batchId, [FromRoute] Guid teacherId, CancellationToken ct)
+        => Ok(new { removed = await academics.RemoveTeacherAsync(batchId, teacherId, ct) });
+
+    [HttpGet("students/{studentId:guid}/export")]
+    public async Task<IActionResult> Export([FromRoute] Guid studentId, CancellationToken ct)
+        => Ok(new { json = await academics.ExportStudentDataAsync(studentId, ct) });
+
+    [HttpPost("students/{studentId:guid}/erase")]
+    public async Task<IActionResult> Erase([FromRoute] Guid studentId, CancellationToken ct)
+        => Ok(new { erased = await academics.EraseStudentDataAsync(studentId, ct) });
 }

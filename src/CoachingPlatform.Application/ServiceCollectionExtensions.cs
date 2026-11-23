@@ -29,6 +29,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IFinanceService, FinanceService>();
         services.AddScoped<IAssetService, AssetService>();
         services.AddScoped<IReportingService, ReportingService>();
+        services.AddScoped<ICommunicationService, CommunicationService>();
+        services.AddScoped<IParentService, ParentService>();
         return services;
     }
 }

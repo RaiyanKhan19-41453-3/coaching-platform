@@ -16,3 +16,6 @@ public sealed record BatchResponse(
     DateOnly StartDate, DateOnly EndDate, int Capacity);
 
 public sealed record EnrollStudentRequest(Guid StudentId);
+
+public sealed record ChangeEnrollmentStatusRequest(EnrollmentStatus Status, string? Reason);
+public sealed record AssignTeacherRequest(Guid TeacherId, bool IsLead);

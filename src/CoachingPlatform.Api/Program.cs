@@ -5,6 +5,8 @@ using CoachingPlatform.Api.Jobs;
 using CoachingPlatform.Api.Jobs.Handlers;
 using CoachingPlatform.Application;
 using CoachingPlatform.Application.Common;
+using CoachingPlatform.Infrastructure.Documents;
+using CoachingPlatform.Infrastructure.Messaging;
 using CoachingPlatform.Application.Services;
 using CoachingPlatform.Infrastructure.Persistence;
 using CoachingPlatform.Infrastructure.Persistence.Interceptors;
@@ -13,6 +15,7 @@ using Hangfire;
 using Hangfire.Common;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -21,6 +24,8 @@ using Npgsql;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
+using StackExchange.Redis;
+using CoachingPlatform.Api.RateLimiting;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -82,6 +87,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
+IConnectionMultiplexer? sharedRedis = null;
+if (!string.IsNullOrWhiteSpace(redisConnection))
+{
+    var redisOptions = ConfigurationOptions.Parse(redisConnection);
+    redisOptions.AbortOnConnectFail = false;
+    sharedRedis = ConnectionMultiplexer.Connect(redisOptions);
+    builder.Services.AddSingleton(sharedRedis);
+}
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -111,6 +125,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<HttpTenantContext>();
 builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<HttpTenantContext>());
 builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<HttpTenantContext>());
+builder.Services.AddSingleton<IDocumentGenerator, QuestPdfDocumentGenerator>();
+builder.Services.AddSingleton<IMessageTransport, MessageTransport>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<AuditInterceptor>();
 builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<AppDbContext>());
@@ -161,6 +177,10 @@ builder.Services.AddScoped<IOutboxEventHandler, AssessmentSubmittedHandler>();
 builder.Services.AddScoped<IOutboxEventHandler, PaymentReceivedHandler>();
 builder.Services.AddScoped<IOutboxEventHandler, InvoiceCreatedHandler>();
 builder.Services.AddScoped<IOutboxEventHandler, TenantProvisionedHandler>();
+builder.Services.AddScoped<IOutboxEventHandler, RefundHandler>();
+builder.Services.AddScoped<IOutboxEventHandler, EnrollmentStatusChangedHandler>();
+builder.Services.AddScoped<IOutboxEventHandler, AssessmentGradedHandler>();
+builder.Services.AddScoped<IOutboxEventHandler, NotificationDeliveryHandler>();
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
@@ -173,6 +193,7 @@ var app = builder.Build();
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseAuthentication();
+app.UseMiddleware<RedisRateLimitMiddleware>();
 app.UseRateLimiter();  // after authentication so the global limit is keyed by tenant
 app.UseAuthorization();
 app.UseCors("web");

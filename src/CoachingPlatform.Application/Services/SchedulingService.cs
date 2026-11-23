@@ -10,6 +10,8 @@ public interface ISchedulingService
     Task<int> GenerateSessionsAsync(Guid ruleId, GenerateSessionsRequest request, CancellationToken ct = default);
     Task<int> MarkAttendanceAsync(Guid sessionId, MarkAttendanceRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<AttendanceResponse>> GetSessionAttendanceAsync(Guid sessionId, CancellationToken ct = default);
+    Task<Guid> CreateLeaveRequestAsync(CreateLeaveRequestRequest request, CancellationToken ct = default);
+    Task<bool> ReviewLeaveRequestAsync(Guid id, ReviewLeaveRequestRequest request, CancellationToken ct = default);
 }
 
 public sealed class SchedulingService(ISender sender) : ISchedulingService
@@ -28,6 +30,12 @@ public sealed class SchedulingService(ISender sender) : ISchedulingService
             r.StudentId, r.Status, r.MinutesLate, r.Note)).ToList();
         return await sender.Send(new MarkAttendance(sessionId, marks), ct);
     }
+
+    public Task<Guid> CreateLeaveRequestAsync(CreateLeaveRequestRequest request, CancellationToken ct)
+        => sender.Send(new CreateLeaveRequest(request.StudentId, request.StartDate, request.EndDate, request.Reason), ct);
+
+    public Task<bool> ReviewLeaveRequestAsync(Guid id, ReviewLeaveRequestRequest request, CancellationToken ct)
+        => sender.Send(new ReviewLeaveRequest(id, request.Approve, request.Note), ct);
 
     public async Task<IReadOnlyList<AttendanceResponse>> GetSessionAttendanceAsync(Guid sessionId, CancellationToken ct)
     {

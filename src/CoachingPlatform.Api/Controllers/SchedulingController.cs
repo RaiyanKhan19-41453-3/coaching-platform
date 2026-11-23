@@ -28,4 +28,13 @@ public sealed class SchedulingController(ISchedulingService scheduling) : Contro
     [HttpGet("sessions/{sessionId:guid}/attendance")]
     public async Task<IActionResult> GetAttendance([FromRoute] Guid sessionId, CancellationToken ct)
         => Ok(await scheduling.GetSessionAttendanceAsync(sessionId, ct));
+
+    [HttpPost("leave-requests")]
+    public async Task<IActionResult> CreateLeave([FromBody] CreateLeaveRequestRequest request, CancellationToken ct)
+        => Ok(await scheduling.CreateLeaveRequestAsync(request, ct));
+
+    [HttpPost("leave-requests/{id:guid}/review")]
+    public async Task<IActionResult> ReviewLeave([FromRoute] Guid id,
+        [FromBody] ReviewLeaveRequestRequest request, CancellationToken ct)
+        => Ok(new { reviewed = await scheduling.ReviewLeaveRequestAsync(id, request, ct) });
 }

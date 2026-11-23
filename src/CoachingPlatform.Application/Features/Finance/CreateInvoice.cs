@@ -14,7 +14,8 @@ using Microsoft.EntityFrameworkCore;
 namespace CoachingPlatform.Application.Features.Finance;
 
 public sealed record InvoiceLineInput(string Description, int Quantity, decimal UnitPrice, string Currency, Guid? FeeStructureId = null);
-public sealed record CreateInvoice(Guid StudentId, Guid? EnrollmentId, IReadOnlyList<InvoiceLineInput> Lines, decimal Discount, decimal TaxPercent)
+public sealed record CreateInvoice(Guid StudentId, Guid? EnrollmentId, IReadOnlyList<InvoiceLineInput> Lines,
+    decimal Discount, decimal TaxPercent, string? DiscountCode = null)
     : IRequest<Guid>, IRequiresTenant;
 
 public sealed class CreateInvoiceValidator : AbstractValidator<CreateInvoice>
@@ -73,8 +74,36 @@ public sealed class CreateInvoiceHandler(IApplicationDbContext db, ICurrentUser 
                 throw new ConflictException("Enrollment belongs to a different student.");
         }
 
+        var rawSubTotal = lines.Aggregate(Money.Zero(currency), (sum, l) => sum.Add(l.Amount));
+        var effectiveDiscount = request.Discount;
+
+        if (!string.IsNullOrWhiteSpace(request.DiscountCode))
+        {
+            var code = request.DiscountCode.Trim().ToUpperInvariant();
+            var discountEntity = await db.Set<Discount>().FirstOrDefaultAsync(d =>
+                d.Code == code && d.IsActive && d.ValidFrom <= DateOnly.FromDateTime(DateTime.UtcNow) &&
+                (d.ValidTo == null || d.ValidTo >= DateOnly.FromDateTime(DateTime.UtcNow)), ct)
+                ?? throw new ConflictException("Discount code is invalid or expired.");
+            if (discountEntity.UsageLimit.HasValue && discountEntity.UsageCount >= discountEntity.UsageLimit.Value)
+                throw new ConflictException("Discount code has been used up.");
+            var value = discountEntity.Type == DiscountType.Percentage
+                ? rawSubTotal.Amount * discountEntity.Value / 100m : discountEntity.Value;
+            if (discountEntity.MaxDiscountAmount.Amount > 0) value = Math.Min(value, discountEntity.MaxDiscountAmount.Amount);
+            effectiveDiscount += value;
+            discountEntity.UsageCount++;
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var scholarship = await db.Set<Scholarship>().FirstOrDefaultAsync(s =>
+            s.StudentId == request.StudentId && s.IsActive && s.StartDate <= today &&
+            (s.EndDate == null || s.EndDate >= today), ct);
+        if (scholarship is not null)
+            effectiveDiscount += scholarship.Type == DiscountType.Percentage
+                ? rawSubTotal.Amount * scholarship.Value / 100m : scholarship.Value;
+
+        effectiveDiscount = Math.Min(decimal.Round(effectiveDiscount, 2), rawSubTotal.Amount);
         var totals = FeeCalculator.Calculate(
-            lines.Select(l => l.Amount).ToList(), request.Discount, request.TaxPercent, currency);
+            lines.Select(l => l.Amount).ToList(), effectiveDiscount, request.TaxPercent, currency);
         var subTotal = totals.SubTotal;
         var discount = totals.Discount;
         var tax = totals.Tax;
