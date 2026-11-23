@@ -82,7 +82,8 @@ public sealed class MarkAttendanceHandler(IApplicationDbContext db, ICurrentUser
             EventType = EventTypes.AttendanceMarked,
             PayloadJson = JsonSerializer.Serialize(new
             {
-                session.Id, session.BatchId, session.StartUtc, AbsentStudents = absentStudents
+                session.Id, session.BatchId, session.StartUtc,
+                StudentIds = studentIds, AbsentStudents = absentStudents
             }),
             OccurredAt = DateTimeOffset.UtcNow
         });

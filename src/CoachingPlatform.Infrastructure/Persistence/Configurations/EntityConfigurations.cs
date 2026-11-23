@@ -7,6 +7,7 @@ using CoachingPlatform.Domain.Crm;
 using CoachingPlatform.Domain.Finance;
 using CoachingPlatform.Domain.Identity;
 using CoachingPlatform.Domain.Platform;
+using CoachingPlatform.Domain.Reporting;
 using CoachingPlatform.Domain.Scheduling;
 using CoachingPlatform.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -587,5 +588,47 @@ public sealed class RefreshTokenConfiguration : GlobalEntityConfiguration<Refres
         base.Configure(b);
         b.HasIndex(e => e.TokenHash).IsUnique();
         b.HasIndex(e => e.UserId);
+    }
+}
+
+public sealed class AttendanceStatConfiguration : TenantEntityConfiguration<AttendanceStat>
+{
+    public override void Configure(EntityTypeBuilder<AttendanceStat> b)
+    {
+        base.Configure(b);
+        b.HasIndex(e => new { e.TenantId, e.StudentId, e.BatchId, e.Period })
+         .IsUnique().HasFilter("\"IsDeleted\" = false");
+        b.Property(e => e.AttendancePercent).HasColumnType("decimal(5,2)");
+    }
+}
+
+public sealed class FeeSummaryConfiguration : TenantEntityConfiguration<FeeSummary>
+{
+    public override void Configure(EntityTypeBuilder<FeeSummary> b)
+    {
+        base.Configure(b);
+        b.HasIndex(e => new { e.TenantId, e.StudentId, e.Period })
+         .IsUnique().HasFilter("\"IsDeleted\" = false");
+    }
+}
+
+public sealed class BatchUtilizationConfiguration : TenantEntityConfiguration<BatchUtilization>
+{
+    public override void Configure(EntityTypeBuilder<BatchUtilization> b)
+    {
+        base.Configure(b);
+        b.HasIndex(e => new { e.TenantId, e.BatchId }).IsUnique().HasFilter("\"IsDeleted\" = false");
+        b.Property(e => e.UtilizationPercent).HasColumnType("decimal(5,2)");
+    }
+}
+
+public sealed class GradeSummaryConfiguration : TenantEntityConfiguration<GradeSummary>
+{
+    public override void Configure(EntityTypeBuilder<GradeSummary> b)
+    {
+        base.Configure(b);
+        b.HasIndex(e => new { e.TenantId, e.StudentId, e.SubjectId })
+         .IsUnique().HasFilter("\"IsDeleted\" = false");
+        b.Property(e => e.Average).HasColumnType("decimal(6,2)");
     }
 }

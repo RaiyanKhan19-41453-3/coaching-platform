@@ -3438,6 +3438,261 @@ namespace CoachingPlatform.Infrastructure.Persistence.Migrations
                     b.ToTable("OutboxMessages");
                 });
 
+            modelBuilder.Entity("CoachingPlatform.Domain.Reporting.AttendanceStat", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Absent")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("AttendancePercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Excused")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("Late")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("Period")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Present")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("Sessions")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "StudentId", "BatchId", "Period")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.ToTable("AttendanceStats");
+                });
+
+            modelBuilder.Entity("CoachingPlatform.Domain.Reporting.BatchUtilization", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Enrolled")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("UtilizationPercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("Waitlisted")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "BatchId")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.ToTable("BatchUtilizations");
+                });
+
+            modelBuilder.Entity("CoachingPlatform.Domain.Reporting.FeeSummary", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("InvoiceCount")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateOnly>("Period")
+                        .HasColumnType("date");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "StudentId", "Period")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.ToTable("FeeSummaries");
+                });
+
+            modelBuilder.Entity("CoachingPlatform.Domain.Reporting.GradeSummary", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Assessments")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Average")
+                        .HasColumnType("decimal(6,2)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Highest")
+                        .HasColumnType("numeric");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<decimal>("Lowest")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("MarksObtained")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("MaxMarks")
+                        .HasColumnType("numeric");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "StudentId", "SubjectId")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.ToTable("GradeSummaries");
+                });
+
             modelBuilder.Entity("CoachingPlatform.Domain.Scheduling.Attendance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4941,6 +5196,81 @@ namespace CoachingPlatform.Infrastructure.Persistence.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CoachingPlatform.Domain.Reporting.FeeSummary", b =>
+                {
+                    b.OwnsOne("CoachingPlatform.Domain.Common.Money", "Invoiced", b1 =>
+                        {
+                            b1.Property<Guid>("FeeSummaryId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)");
+
+                            b1.HasKey("FeeSummaryId");
+
+                            b1.ToTable("FeeSummaries");
+
+                            b1.WithOwner()
+                                .HasForeignKey("FeeSummaryId");
+                        });
+
+                    b.OwnsOne("CoachingPlatform.Domain.Common.Money", "Outstanding", b1 =>
+                        {
+                            b1.Property<Guid>("FeeSummaryId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)");
+
+                            b1.HasKey("FeeSummaryId");
+
+                            b1.ToTable("FeeSummaries");
+
+                            b1.WithOwner()
+                                .HasForeignKey("FeeSummaryId");
+                        });
+
+                    b.OwnsOne("CoachingPlatform.Domain.Common.Money", "Paid", b1 =>
+                        {
+                            b1.Property<Guid>("FeeSummaryId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)");
+
+                            b1.HasKey("FeeSummaryId");
+
+                            b1.ToTable("FeeSummaries");
+
+                            b1.WithOwner()
+                                .HasForeignKey("FeeSummaryId");
+                        });
+
+                    b.Navigation("Invoiced")
+                        .IsRequired();
+
+                    b.Navigation("Outstanding")
+                        .IsRequired();
+
+                    b.Navigation("Paid")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("CoachingPlatform.Domain.Scheduling.Attendance", b =>

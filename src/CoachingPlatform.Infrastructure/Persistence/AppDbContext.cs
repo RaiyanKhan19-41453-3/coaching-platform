@@ -9,6 +9,7 @@ using CoachingPlatform.Domain.Crm;
 using CoachingPlatform.Domain.Finance;
 using CoachingPlatform.Domain.Identity;
 using CoachingPlatform.Domain.Platform;
+using CoachingPlatform.Domain.Reporting;
 using CoachingPlatform.Domain.Scheduling;
 using CoachingPlatform.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -97,6 +98,11 @@ public sealed class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Asset> Assets => Set<Asset>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
+    public DbSet<AttendanceStat> AttendanceStats => Set<AttendanceStat>();
+    public DbSet<FeeSummary> FeeSummaries => Set<FeeSummary>();
+    public DbSet<BatchUtilization> BatchUtilizations => Set<BatchUtilization>();
+    public DbSet<GradeSummary> GradeSummaries => Set<GradeSummary>();
 
     public DateTimeOffset Now => _timeProvider.GetUtcNow();
 

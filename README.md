@@ -117,6 +117,33 @@ stamp commit in **one transaction**, so a retry cannot duplicate side effects.
 Dashboard: http://localhost:18081/jobs (Development only). Manual drain:
 `POST /api/jobs/outbox/dispatch` with a bearer token.
 
+## Reporting read models
+
+Write tables are never queried by dashboards. Four projection tables are maintained from the
+outbox and a nightly rebuild:
+
+| Projection | Grain | Fed by |
+| --- | --- | --- |
+| `AttendanceStat` | student × batch × month | `attendance.marked` |
+| `FeeSummary` | student × month | `invoice.created`, `payment.received` |
+| `BatchUtilization` | batch | `enrollment.created` |
+| `GradeSummary` | student × subject | `assessment.submitted` |
+
+Endpoints (JWT required, read-only, no-tracking):
+
+```
+GET /api/reports/dashboard
+GET /api/reports/attendance?batchId=&studentId=&from=&to=
+GET /api/reports/fees?studentId=&from=&to=
+GET /api/reports/utilization
+GET /api/reports/grades?studentId=&subjectId=
+POST /api/jobs/projections/rebuild     # manual/nightly repair
+```
+
+The `projection-rebuild` Hangfire job (daily) recomputes every projection from the write tables,
+so backfills and drift repair are a single operation. Incremental handlers and the rebuild
+normalise periods to the first of the month, so they produce identical rows.
+
 ## Tests
 
 ```bash

@@ -79,7 +79,7 @@ public sealed class RecordPaymentHandler(IApplicationDbContext db, ICurrentUser 
             TenantId = current.TenantId,
             EventType = EventTypes.PaymentReceived,
             PayloadJson = JsonSerializer.Serialize(new
-            { PaymentId = payment.Id, InvoiceId = invoice.Id, invoice.StudentId, Amount = amount.Amount, currency }),
+            { PaymentId = payment.Id, InvoiceId = invoice.Id, invoice.StudentId, PaidAt = postedAt, Amount = amount.Amount, currency }),
             OccurredAt = postedAt
         });
         await db.SaveChangesAsync(ct);

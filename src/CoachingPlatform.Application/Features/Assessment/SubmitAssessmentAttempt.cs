@@ -109,7 +109,7 @@ public sealed class SubmitAttemptHandler(IApplicationDbContext db, ICurrentUser 
             TenantId = current.TenantId,
             EventType = EventTypes.AssessmentSubmitted,
             PayloadJson = JsonSerializer.Serialize(new
-            { AttemptId = attempt.Id, AssessmentId = assessment.Id, request.StudentId, Score = score, MaxScore = maxPossible }),
+            { AttemptId = attempt.Id, AssessmentId = assessment.Id, assessment.SubjectId, request.StudentId, Score = score, MaxScore = maxPossible }),
             OccurredAt = DateTimeOffset.UtcNow
         });
         await db.SaveChangesAsync(ct);

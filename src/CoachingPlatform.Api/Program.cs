@@ -48,6 +48,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddSingleton(new JobDbContextFactory(connectionString));
 builder.Services.AddTransient<OutboxDispatcher>();
 builder.Services.AddTransient<RefreshTokenCleanup>();
+builder.Services.AddTransient<ProjectionRebuilder>();
 builder.Services.AddScoped<IOutboxEventHandler, EnrollmentCreatedHandler>();
 builder.Services.AddScoped<IOutboxEventHandler, AttendanceMarkedHandler>();
 builder.Services.AddScoped<IOutboxEventHandler, AssessmentSubmittedHandler>();
@@ -147,5 +148,7 @@ RecurringJob.AddOrUpdate<OutboxDispatcher>("outbox-dispatch",
     job => job.DispatchAsync(), "*/1 * * * *");
 RecurringJob.AddOrUpdate<RefreshTokenCleanup>("refresh-token-cleanup",
     job => job.CleanupAsync(), Cron.Daily);
+RecurringJob.AddOrUpdate<ProjectionRebuilder>("projection-rebuild",
+    job => job.RebuildAsync(), Cron.Daily);
 
 app.Run();

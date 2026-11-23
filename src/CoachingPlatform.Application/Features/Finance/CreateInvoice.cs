@@ -81,7 +81,7 @@ public sealed class CreateInvoiceHandler(IApplicationDbContext db, ICurrentUser 
         {
             TenantId = current.TenantId,
             EventType = EventTypes.InvoiceCreated,
-            PayloadJson = JsonSerializer.Serialize(new { invoice.Id, invoice.InvoiceNumber, invoice.StudentId, Total = total.Amount, currency }),
+            PayloadJson = JsonSerializer.Serialize(new { invoice.Id, invoice.InvoiceNumber, invoice.StudentId, invoice.IssueDate, Total = total.Amount, currency }),
             OccurredAt = DateTimeOffset.UtcNow
         });
         await db.SaveChangesAsync(ct);

@@ -3,6 +3,7 @@ using CoachingPlatform.Application.Features.Academics;
 using CoachingPlatform.Application.Features.Assessment;
 using CoachingPlatform.Application.Features.Finance;
 using CoachingPlatform.Application.Features.Identity;
+using CoachingPlatform.Application.Features.Reporting;
 using CoachingPlatform.Application.Features.Scheduling;
 using CoachingPlatform.Domain.Common;
 using MediatR;
@@ -21,7 +22,23 @@ public static class ApiEndpoints
             return Results.Ok(new { dispatched = true });
         }).WithSummary("Manually drain the outbox (recurring job also runs every minute)");
 
+        api.MapPost("/jobs/projections/rebuild", async (ProjectionRebuilder rebuilder, CancellationToken ct) =>
+        {
+            await rebuilder.RebuildAsync();
+            return Results.Ok(new { rebuilt = true });
+        }).WithSummary("Rebuild all reporting projections from source tables");
+
         api.MapGet("/auth/me", async (ISender sender) => Results.Ok(await sender.Send(new GetCurrentUser())));
+
+        // ----- Reports (projection tables only) -----
+        api.MapGet("/reports/dashboard", async (ISender sender) => Results.Ok(await sender.Send(new GetDashboardSummary())));
+        api.MapGet("/reports/attendance", async (ISender sender, Guid? batchId, Guid? studentId, DateOnly? from, DateOnly? to)
+            => Results.Ok(await sender.Send(new GetAttendanceReport(batchId, studentId, from, to))));
+        api.MapGet("/reports/fees", async (ISender sender, Guid? studentId, DateOnly? from, DateOnly? to)
+            => Results.Ok(await sender.Send(new GetFeeReport(studentId, from, to))));
+        api.MapGet("/reports/utilization", async (ISender sender) => Results.Ok(await sender.Send(new GetUtilizationReport())));
+        api.MapGet("/reports/grades", async (ISender sender, Guid? studentId, Guid? subjectId)
+            => Results.Ok(await sender.Send(new GetGradeReport(studentId, subjectId))));
 
         // ----- Academics -----
         api.MapPost("/courses", async (ISender sender, CreateCourse cmd) => Results.Ok(await sender.Send(cmd)))

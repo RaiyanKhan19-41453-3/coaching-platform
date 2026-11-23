@@ -69,3 +69,14 @@ rows added by a handler, commits them together with the `ProcessedAt` stamp, the
 row to the recipient's SignalR group. Delivery is at-least-once from the client's perspective
 (the row is durable in the database), but exactly-once at the database level: a failed push is
 logged, not retried, so it cannot duplicate the row.
+
+
+## Read models
+
+`AttendanceStat`, `FeeSummary`, `BatchUtilization` and `GradeSummary` live in the Reporting
+module. They are projection tables, not source of truth: no command writes to them. Outbox
+handlers call `ProjectionUpdater` (incremental), while `ProjectionRebuilder` recomputes all
+rows per tenant from write tables on a nightly Hangfire schedule. Both normalise monthly
+periods to the first day of the month, and both use the same upsert keys so incremental and
+full rebuilds converge on identical rows. Report queries in `Features/Reporting` read only
+these tables with `AsNoTracking()`.
