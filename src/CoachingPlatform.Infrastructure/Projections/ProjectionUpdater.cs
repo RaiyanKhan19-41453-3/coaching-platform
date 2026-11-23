@@ -1,6 +1,7 @@
 using CoachingPlatform.Domain.Academics;
 using CoachingPlatform.Domain.Assessment;
 using CoachingPlatform.Domain.Common;
+using CoachingPlatform.Domain.Services;
 using CoachingPlatform.Domain.Finance;
 using CoachingPlatform.Domain.Reporting;
 using CoachingPlatform.Domain.Scheduling;
@@ -44,11 +45,10 @@ public static class ProjectionUpdater
         }
         stat.Sessions = sessions;
         stat.Present = present;
-        stat.Absent = Math.Max(0, sessions - present - late - rows.Count(r => r.Status == AttendanceStatus.Excused));
+        stat.Absent = AttendancePolicy.Absent(sessions, present, late, rows.Count(r => r.Status == AttendanceStatus.Excused));
         stat.Late = late;
         stat.Excused = rows.Count(r => r.Status == AttendanceStatus.Excused);
-        stat.AttendancePercent = sessions == 0
-            ? 0m : Math.Round((present + late) * 100m / sessions, 2);
+        stat.AttendancePercent = AttendancePolicy.Percentage(sessions, present, late);
     }
 
     public static async Task RefreshFeesAsync(

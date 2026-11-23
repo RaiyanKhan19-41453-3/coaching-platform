@@ -30,10 +30,12 @@ Migrations are applied and demo data is seeded automatically by the API at start
 ## Solution layout
 
 ```
-src/CoachingPlatform.Domain          Pure domain: entities, value objects, enums (no EF dependency)
-src/CoachingPlatform.Application     CQRS command/query slices, MediatR pipeline, FluentValidation, auth commands
+src/CoachingPlatform.Domain          Pure domain: entities, value objects, enums, domain policies (no EF dependency)
+src/CoachingPlatform.Application     CQRS command/query slices, application service interfaces + implementations,
+                                     API DTOs, MediatR pipeline, FluentValidation, domain-facing abstractions
 src/CoachingPlatform.Infrastructure  EF Core 10 model, configurations, audit interceptor, Npgsql
-src/CoachingPlatform.Api             Minimal API, JWT, tenant resolution, health checks, SignalR, Hangfire jobs
+src/CoachingPlatform.Api             Controllers, JWT, tenant resolution, health checks, SignalR, Hangfire jobs
+                                     Controllers live in Api/Controllers, grouped by bounded context
 web                                  React + Vite + TypeScript, Nginx proxy
 ```
 
@@ -205,6 +207,13 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 CI (`.github/workflows/ci.yml`) runs the containerized test suite, builds both images and
 smoke-tests the API image against throwaway Postgres/Redis containers.
+
+## Architecture
+
+Conventional layered architecture: **Controllers → application service interfaces → MediatR
+handlers → EF Core**. Controllers contain no business logic; services map API DTOs to commands
+and queries. Domain policies (`Domain/Services`) hold pure rules. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for conventions and the microservice extraction path.
 
 ## Tests
 

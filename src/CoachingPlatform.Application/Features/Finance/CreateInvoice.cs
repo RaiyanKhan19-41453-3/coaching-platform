@@ -5,6 +5,7 @@ using CoachingPlatform.Domain.Common;
 using CoachingPlatform.Domain.Finance;
 using CoachingPlatform.Domain.Identity;
 using CoachingPlatform.Domain.Tenancy;
+using CoachingPlatform.Domain.Services;
 using CoachingPlatform.Domain.Platform;
 using FluentValidation;
 using MediatR;
@@ -72,10 +73,12 @@ public sealed class CreateInvoiceHandler(IApplicationDbContext db, ICurrentUser 
                 throw new ConflictException("Enrollment belongs to a different student.");
         }
 
-        var subTotal = lines.Aggregate(Money.Zero(currency), (sum, l) => sum.Add(l.Amount));
-        var discount = new Money(decimal.Round(Math.Min(request.Discount, subTotal.Amount), 2), currency);
-        var tax = subTotal.Subtract(discount).Multiply(request.TaxPercent / 100m);
-        var total = subTotal.Subtract(discount).Add(tax);
+        var totals = FeeCalculator.Calculate(
+            lines.Select(l => l.Amount).ToList(), request.Discount, request.TaxPercent, currency);
+        var subTotal = totals.SubTotal;
+        var discount = totals.Discount;
+        var tax = totals.Tax;
+        var total = totals.Total;
 
         var invoice = new Invoice
         {

@@ -1,6 +1,7 @@
 using CoachingPlatform.Domain.Academics;
 using CoachingPlatform.Domain.Assessment;
 using CoachingPlatform.Domain.Common;
+using CoachingPlatform.Domain.Services;
 using CoachingPlatform.Domain.Reporting;
 using CoachingPlatform.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -104,8 +105,8 @@ public sealed class ProjectionRebuilder(JobDbContextFactory factory, ILogger<Pro
                     {
                         TenantId = tenantId, StudentId = group.Key.StudentId, BatchId = group.Key.BatchId,
                         Period = group.Key.Period, Sessions = sessions, Present = present, Late = late,
-                        Absent = Math.Max(0, sessions - present - late - excused), Excused = excused,
-                        AttendancePercent = sessions == 0 ? 0m : Math.Round((present + late) * 100m / sessions, 2)
+                        Absent = AttendancePolicy.Absent(sessions, present, late, excused), Excused = excused,
+                        AttendancePercent = AttendancePolicy.Percentage(sessions, present, late)
                     });
                 }
 

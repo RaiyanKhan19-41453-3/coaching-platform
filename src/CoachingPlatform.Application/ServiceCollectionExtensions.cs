@@ -1,6 +1,7 @@
 using System.Reflection;
 using CoachingPlatform.Application.Behaviors;
 using CoachingPlatform.Application.Features.Identity;
+using CoachingPlatform.Application.Services;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,13 @@ public static class ServiceCollectionExtensions
         });
         services.AddValidatorsFromAssembly(assembly);
         services.AddScoped<TokenIssuer>();
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IAcademicsService, AcademicsService>();
+        services.AddScoped<ISchedulingService, SchedulingService>();
+        services.AddScoped<IAssessmentService, AssessmentService>();
+        services.AddScoped<IFinanceService, FinanceService>();
+        services.AddScoped<IAssetService, AssetService>();
+        services.AddScoped<IReportingService, ReportingService>();
         return services;
     }
 }

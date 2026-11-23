@@ -5,6 +5,7 @@ using CoachingPlatform.Domain.Academics;
 using CoachingPlatform.Domain.Common;
 using CoachingPlatform.Domain.Identity;
 using CoachingPlatform.Domain.Platform;
+using CoachingPlatform.Domain.Services;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -41,7 +42,7 @@ public sealed class EnrollStudentHandler(IApplicationDbContext db, ICurrentUser 
 
         var active = await db.Set<Enrollment>().CountAsync(e => e.BatchId == request.BatchId &&
             e.Status != EnrollmentStatus.Dropped && e.Status != EnrollmentStatus.Completed, ct);
-        if (active >= batch.Capacity)
+        if (!EnrollmentPolicy.HasCapacity(active, batch.Capacity))
             throw new ConflictException("Batch is full.");
 
         var enrollment = new Enrollment

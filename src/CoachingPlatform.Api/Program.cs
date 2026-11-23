@@ -5,6 +5,7 @@ using CoachingPlatform.Api.Jobs;
 using CoachingPlatform.Api.Jobs.Handlers;
 using CoachingPlatform.Application;
 using CoachingPlatform.Application.Common;
+using CoachingPlatform.Application.Services;
 using CoachingPlatform.Infrastructure.Persistence;
 using CoachingPlatform.Infrastructure.Persistence.Interceptors;
 using CoachingPlatform.Infrastructure.Storage;
@@ -51,6 +52,8 @@ if (builder.Environment.IsProduction())
 
 // ---- Application services ----
 builder.Services.AddApplication();
+builder.Services.AddControllers();
+builder.Services.AddScoped<IJobService, JobService>();
 builder.Services.AddSingleton<IObjectStorage>(new MinioObjectStorage(
     builder.Configuration["Minio:Endpoint"] ?? "minio:9000",
     builder.Configuration["Minio:AccessKey"] ?? "coaching",
@@ -192,12 +195,6 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.MapGet("/", () => new
-{
-    service = "Coaching Platform API",
-    status = "running",
-    stack = new[] { ".NET 10", "EF Core 10", "PostgreSQL 17", "Redis 7", "MinIO" }
-}).DisableRateLimiting();
 app.MapGet("/health/live", () => Results.Ok(new { status = "alive" })).DisableRateLimiting();
 app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
@@ -205,11 +202,9 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 }).DisableRateLimiting();
 app.MapOpenApi().DisableRateLimiting();
 app.MapScalarApiReference().DisableRateLimiting();
+app.MapControllers();
 
 app.MapHub<NotificationHub>("/hubs/notifications").RequireAuthorization().DisableRateLimiting();
-app.MapAuth();
-app.MapAssets();
-app.MapApi();
 
 // Bootstrap. Production expects migrations to have been applied by the migrate job.
 using (var scope = app.Services.CreateScope())
