@@ -5,6 +5,7 @@ using System.Text;
 using CoachingPlatform.Api.Jobs;
 using CoachingPlatform.Api.Jobs.Handlers;
 using CoachingPlatform.Infrastructure.Persistence;
+using CoachingPlatform.Infrastructure.Storage;
 using Hangfire;
 using Hangfire.Common;
 using Hangfire.PostgreSql;
@@ -21,6 +22,13 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? "Host=db;Database=coaching;Username=coaching;Password=coaching;Include Error Detail=true";
 
 builder.Services.AddApplication();
+builder.Services.AddSingleton<IObjectStorage>(new MinioObjectStorage(
+    builder.Configuration["Minio:Endpoint"] ?? "minio:9000",
+    builder.Configuration["Minio:AccessKey"] ?? "coaching",
+    builder.Configuration["Minio:SecretKey"] ?? "coaching",
+    builder.Configuration["Minio:Bucket"] ?? "coaching",
+    builder.Configuration["Minio:PublicEndpoint"] ?? "http://localhost:9000"));
+
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ITokenGenerator, JwtTokenGenerator>();
 
@@ -121,6 +129,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 
 app.MapHub<NotificationHub>("/hubs/notifications").RequireAuthorization();
 app.MapAuth();
+app.MapAssets();
 app.MapApi();
 
 // Bootstrap schema + seed data with retry (Postgres may still be starting).
@@ -133,6 +142,14 @@ using (var scope = app.Services.CreateScope())
         {
             await db.Database.MigrateAsync();
             await DatabaseSeeder.SeedAsync(connectionString);
+            try
+            {
+                await app.Services.GetRequiredService<IObjectStorage>().EnsureBucketAsync();
+            }
+            catch (Exception storageEx)
+            {
+                app.Logger.LogWarning(storageEx, "Object storage bucket not ready; asset endpoints will fail until it is.");
+            }
             app.Logger.LogInformation("Database ready (attempt {Attempt}).", attempt);
             break;
         }

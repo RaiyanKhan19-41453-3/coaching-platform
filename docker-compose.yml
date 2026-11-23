@@ -50,6 +50,11 @@ services:
       Jwt__Issuer: coaching-platform
       Jwt__Audience: coaching-web
       Jwt__AccessTokenMinutes: 30
+      Minio__Endpoint: minio:9000
+      Minio__AccessKey: ${MINIO_ROOT_USER:-coaching}
+      Minio__SecretKey: ${MINIO_ROOT_PASSWORD:-coaching}
+      Minio__Bucket: coaching
+      Minio__PublicEndpoint: "http://localhost:${MINIO_PORT:-9000}"
       Cors__Origins__0: "http://localhost:${WEB_PORT:-13000}"
     ports:
       - "${API_PORT:-18081}:8080"
@@ -65,8 +70,7 @@ services:
       - "${WEB_PORT:-13000}:80"
 
   minio:
-    image: minio/minio:latest
-    profiles: ["storage"]
+    image: pipeforge-minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:

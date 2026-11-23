@@ -23,6 +23,7 @@ public abstract class IntegrationTestBase(DatabaseFixture fixture) : IAsyncLifet
 
     protected ISender Sender => _services.GetRequiredService<ISender>();
     protected AppDbContext Db => _services.GetRequiredService<AppDbContext>();
+    protected FakeObjectStorage Storage => (FakeObjectStorage)_services.GetRequiredService<IObjectStorage>();
 
     public Task InitializeAsync()
     {
@@ -32,6 +33,7 @@ public abstract class IntegrationTestBase(DatabaseFixture fixture) : IAsyncLifet
         services.AddSingleton<ITenantContext>(Ambient);
         services.AddSingleton<ICurrentUser>(Ambient);
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
+        services.AddSingleton<IObjectStorage, FakeObjectStorage>();
         services.AddSingleton<ITokenGenerator, FakeTokenGenerator>();
         services.AddSingleton(_ => new AuditInterceptor(Ambient));
         services.AddScoped(provider => new AppDbContext(

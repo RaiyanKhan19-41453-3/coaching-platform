@@ -17,11 +17,11 @@ docker compose up -d --build
 | SignalR | http://localhost:18081/hubs/notifications | Real-time hub |
 | Postgres | localhost:15432 | `coaching` / `coaching` |
 | Redis | localhost:16379 | SignalR backplane for multi-replica push |
+| MinIO | localhost:9000 | Object storage (console :9001) |
 
 Optional services:
 
 ```bash
-docker compose --profile storage up -d   # MinIO object storage (:9000, console :9001)
 docker compose --profile tools up -d     # pgAdmin (:5050)
 ```
 
@@ -116,6 +116,25 @@ stamp commit in **one transaction**, so a retry cannot duplicate side effects.
 
 Dashboard: http://localhost:18081/jobs (Development only). Manual drain:
 `POST /api/jobs/outbox/dispatch` with a bearer token.
+
+## Object storage (MinIO)
+
+File bytes never flow through the API. `POST /api/assets/upload-url` creates an `Asset` row and
+returns a 15-minute presigned PUT URL; the client uploads directly to MinIO, then calls
+`POST /api/assets/{id}/complete` to verify the object and mark it clean. Downloads use short-lived
+presigned GET URLs.
+
+```
+POST /api/assets/upload-url      { fileName, contentType, sizeBytes, ownerType, ownerId }
+POST /api/assets/{id}/complete
+GET  /api/assets/{id}/url
+GET  /api/assets
+DELETE /api/assets/{id}
+```
+
+The adapter signs URLs with the browser-reachable host (`Minio:PublicEndpoint`) while server-side
+bucket operations use the container endpoint (`Minio:Endpoint`). The bucket is created on startup.
+MinIO's default CORS already permits the web origin; a bucket-level rule can be added if needed.
 
 ## Reporting read models
 

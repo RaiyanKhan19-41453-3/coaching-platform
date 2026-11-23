@@ -9,6 +9,14 @@ type Notice = {
   sentAt: string;
 };
 
+type Asset = {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  scanStatus: number;
+};
+
 const TOKEN_KEY = 'coaching-token';
 
 export default function App() {
@@ -19,7 +27,19 @@ export default function App() {
   const [error, setError] = useState('');
   const [connection, setConnection] = useState('disconnected');
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const hub = useRef<HubConnection | null>(null);
+
+  async function refreshAssets() {
+    try {
+      const response = await fetch('/api/assets', {
+        headers: { Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) ?? ''}` },
+      });
+      if (response.ok) setAssets(await response.json() as Asset[]);
+    } catch { /* notifications are the primary view */ }
+  }
 
   useEffect(() => {
     if (!token) return;
@@ -35,7 +55,7 @@ export default function App() {
 
     setConnection('connecting…');
     c.start()
-      .then(() => setConnection('connected'))
+      .then(() => { setConnection('connected'); void refreshAssets(); })
       .catch((e: unknown) => {
         setConnection('failed');
         setError(String(e));
@@ -63,6 +83,34 @@ export default function App() {
       setToken(data.accessToken);
     } catch (e) {
       setError(String(e));
+    }
+  }
+
+  async function uploadFile(event: React.FormEvent) {
+    event.preventDefault();
+    if (!file) return;
+    setUploading(true);
+    setError('');
+    try {
+      const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+      const started = await fetch('/api/assets/upload-url', {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          fileName: file.name, contentType: file.type || 'application/octet-stream',
+          sizeBytes: file.size, ownerType: 'Lesson', ownerId: null, isPublic: false,
+        }),
+      });
+      if (!started.ok) throw new Error(`Upload URL failed: HTTP ${started.status}`);
+      const { id, url } = await started.json() as { id: string; url: string };
+      const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+      if (!put.ok) throw new Error(`Storage upload failed: HTTP ${put.status}`);
+      await fetch(`/api/assets/${id}/complete`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      await refreshAssets();
+      setFile(null);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -105,6 +153,24 @@ export default function App() {
               ))}
             </ul>
           )}
+        </section>
+      )}
+
+      {token && (
+        <section className="card">
+          <h2>Materials</h2>
+          <form className="row" onSubmit={uploadFile}>
+            <input type="file" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+            <button type="submit" disabled={!file || uploading}>{uploading ? 'Uploading…' : 'Upload'}</button>
+          </form>
+          <ul className="notices">
+            {assets.map(a => (
+              <li key={a.id}>
+                <strong>{a.fileName}</strong>
+                <span>{a.sizeBytes} bytes · {a.scanStatus === 1 ? 'ready' : 'pending'}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

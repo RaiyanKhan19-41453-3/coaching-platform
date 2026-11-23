@@ -80,3 +80,10 @@ rows per tenant from write tables on a nightly Hangfire schedule. Both normalise
 periods to the first day of the month, and both use the same upsert keys so incremental and
 full rebuilds converge on identical rows. Report queries in `Features/Reporting` read only
 these tables with `AsNoTracking()`.
+
+
+## Object storage
+
+`Asset` is a manifest row, not the bytes. `StorageKey` is tenant-prefixed
+(`{tenant}/{yyyy}/{MM}/{guid}-{filename}`); presigned URLs keep large uploads off the API. The
+`ScanStatus` field leaves room for a virus-scanning worker between upload and `Clean`.
