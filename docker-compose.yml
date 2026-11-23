@@ -63,6 +63,10 @@ services:
       Seq__ServerUrl: ${SEQ_URL:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_ENDPOINT:-}
 
+      # Rate limits
+      RateLimit__PerTenantPerMinute: ${RATE_TENANT_LIMIT:-6000}
+      RateLimit__AuthPerIpPerMinute: ${RATE_AUTH_LIMIT:-100}
+
       # Optional email / SMS delivery (empty values = no-op)
       Messaging__SmtpHost: ${SMTP_HOST:-}
       Messaging__SmtpPort: ${SMTP_PORT:-587}
