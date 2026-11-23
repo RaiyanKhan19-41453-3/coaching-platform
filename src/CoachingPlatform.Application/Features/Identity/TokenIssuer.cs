@@ -15,6 +15,7 @@ public sealed class TokenIssuer(IApplicationDbContext db, ITokenGenerator tokens
         {
             UserId = user.Id,
             TokenHash = TokenHasher.Sha256(refresh),
+            TenantId = tenantId,
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(14)
         });
         await db.SaveChangesAsync(ct);

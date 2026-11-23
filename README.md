@@ -163,6 +163,28 @@ The `projection-rebuild` Hangfire job (daily) recomputes every projection from t
 so backfills and drift repair are a single operation. Incremental handlers and the rebuild
 normalise periods to the first of the month, so they produce identical rows.
 
+## Production hardening & CI
+
+- **OpenAPI** at `/openapi/v1.json`, interactive **Scalar** UI at `/scalar/v1` (bearer scheme registered)
+- **Rate limiting**: 300 req/min per tenant (sliding window) globally, 10 req/min per IP on auth endpoints (429 with `Retry-After` semantics)
+- **Serilog** structured request logging, optional Seq sink via `Seq__ServerUrl`
+- **OpenTelemetry** ASP.NET Core/HTTP/Npgsql instrumentation; traces + metrics export when `OTEL_EXPORTER_OTLP_ENDPOINT` is set
+- **Startup guards** in Production reject default JWT keys, default DB passwords and default MinIO secrets
+- **Health** `/health/ready` checks Postgres and Redis; `/health/live` is dependency-free
+- **Subdomain tenant resolution** from `Host` header before handlers run
+
+Production overlay (migrations run as a one-shot job before the API starts; internal stores
+are not published on host ports):
+
+```bash
+POSTGRES_PASSWORD='...' JWT_KEY='long-random-secret' MINIO_ROOT_PASSWORD='...' \
+MINIO_PUBLIC_ENDPOINT='http://localhost:9000' \
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+CI (`.github/workflows/ci.yml`) runs the containerized test suite, builds both images and
+smoke-tests the API image against throwaway Postgres/Redis containers.
+
 ## Tests
 
 ```bash

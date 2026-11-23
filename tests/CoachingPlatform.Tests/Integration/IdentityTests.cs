@@ -84,4 +84,34 @@ public class IdentityTests(DatabaseFixture fixture) : IntegrationTestBase(fixtur
             Sender.Send(new Login($"admin-{suffix}@integration.local", "wrong", $"academy-{suffix}")));
         Assert.Equal(401, ex.StatusCode);
     }
+
+    [Fact]
+    public async Task Login_FiveFailuresLockTheAccount()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        await Sender.Send(NewRequest(suffix));
+        var email = $"admin-{suffix}@integration.local";
+        for (var i = 0; i < 5; i++)
+            await Assert.ThrowsAsync<AppException>(() => Sender.Send(new Login(email, "wrong", $"academy-{suffix}")));
+
+        var ex = await Assert.ThrowsAsync<AppException>(() =>
+            Sender.Send(new Login(email, "Password123!", $"academy-{suffix}")));
+        Assert.Equal(423, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task Refresh_KeepsTenantRecordedOnTheToken()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var tenantId = await Sender.Send(NewRequest(suffix));
+        var login = await Sender.Send(new Login($"admin-{suffix}@integration.local",
+            "Password123!", $"academy-{suffix}"));
+
+        var stored = await Db.RefreshTokens.IgnoreQueryFilters()
+            .OrderByDescending(t => t.ExpiresAt).FirstAsync();
+        Assert.Equal(tenantId, stored.TenantId);
+
+        var refreshed = await Sender.Send(new RefreshAccessToken(login.RefreshToken));
+        Assert.Equal(tenantId, refreshed.TenantId);
+    }
 }

@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    name: Containerized tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run test suite (SDK container + Testcontainers)
+        run: ./scripts/run-tests.sh
+
+  build:
+    name: Build images
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build -t coaching-api:${{ github.sha }} -f src/CoachingPlatform.Api/Dockerfile .
+      - name: Build Web image
+        run: docker build -t coaching-web:${{ github.sha }} ./web
+      - name: Smoke test API image
+        run: |
+          docker network create ci-smoke || true
+          docker run -d --name ci-db --network ci-smoke -e POSTGRES_PASSWORD=test -e POSTGRES_DB=coaching postgres:17-alpine
+          docker run -d --name ci-cache --network ci-smoke redis:7-alpine
+          docker run -d --name ci-api --network ci-smoke -p 18081:8080 \
+            -e ConnectionStrings__Default='Host=ci-db;Database=coaching;Username=postgres;Password=test' \
+            -e ASPNETCORE_ENVIRONMENT=Development coaching-api:${{ github.sha }}
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:18081/health/ready >/dev/null; then echo ready; exit 0; fi
+            sleep 2
+          done
+          docker logs ci-api
+          exit 1

@@ -2913,6 +2913,9 @@ namespace CoachingPlatform.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("RevokedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("TokenHash")
                         .IsRequired()
                         .HasColumnType("text");

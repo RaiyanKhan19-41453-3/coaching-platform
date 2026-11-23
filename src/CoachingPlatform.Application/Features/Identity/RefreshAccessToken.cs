@@ -27,15 +27,21 @@ public sealed class RefreshAccessTokenHandler(
 
         var user = await db.Set<User>().FirstOrDefaultAsync(u => u.Id == stored.UserId, ct)
                    ?? throw new AppException("Unknown account.", 401, "Unauthorized");
-        var membership = await db.Set<TenantMembership>().IgnoreQueryFilters()
-            .FirstOrDefaultAsync(m => m.UserId == user.Id && m.Status == MembershipStatus.Active, ct)
-            ?? throw new AppException("No active center membership.", 403, "Forbidden");
+        var tenantId = stored.TenantId;
+        if (!tenantId.HasValue)
+        {
+            var membership = await db.Set<TenantMembership>().IgnoreQueryFilters()
+                .FirstOrDefaultAsync(m => m.UserId == user.Id && m.Status == MembershipStatus.Active, ct);
+            tenantId = membership?.TenantId;
+        }
+        if (!tenantId.HasValue)
+            throw new AppException("No active center membership for this token.", 403, "Forbidden");
         var roles = await db.Set<UserRole>().IgnoreQueryFilters()
-            .Where(r => r.UserId == user.Id && r.TenantId == membership.TenantId &&
+            .Where(r => r.UserId == user.Id && r.TenantId == tenantId.Value &&
                         (r.ExpiresAt == null || r.ExpiresAt > DateTimeOffset.UtcNow))
             .Select(r => r.Role.Name).ToListAsync(ct);
 
-        var result = await issuer.IssueAsync(user, membership.TenantId, roles, ct);
+        var result = await issuer.IssueAsync(user, tenantId.Value, roles, ct);
         stored.RevokedAt = DateTimeOffset.UtcNow;
         stored.ReplacedByTokenHash = TokenHasher.Sha256(result.RefreshToken);
         await db.SaveChangesAsync(ct);

@@ -26,12 +26,30 @@ public sealed class LoginHandler(
     {
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await db.Set<User>().FirstOrDefaultAsync(u => u.Email == email, ct);
-        if (user is null || user.PasswordHash is null || !hasher.Verify(request.Password, user.PasswordHash))
+        if (user is null)
             throw new AppException("Invalid email or password.", 401, "Unauthorized");
         if (user.Status != UserStatus.Active)
             throw new AppException("Account is not active.", 403, "Forbidden");
-        if (user.LockedUntil.HasValue && user.LockedUntil > DateTimeOffset.UtcNow)
+
+        var now = DateTimeOffset.UtcNow;
+        if (user.LockedUntil.HasValue && user.LockedUntil > now)
             throw new AppException("Account is temporarily locked.", 423, "Locked");
+
+        if (user.PasswordHash is null || !hasher.Verify(request.Password, user.PasswordHash))
+        {
+            user.FailedLoginAttempts++;
+            if (user.FailedLoginAttempts >= 5)
+            {
+                user.LockedUntil = now.AddMinutes(15);
+                user.FailedLoginAttempts = 0;
+            }
+            await db.SaveChangesAsync(ct);
+            throw new AppException("Invalid email or password.", 401, "Unauthorized");
+        }
+
+        user.FailedLoginAttempts = 0;
+        user.LockedUntil = null;
+        user.LastLoginAt = now;
 
         var memberships = await db.Set<TenantMembership>().IgnoreQueryFilters()
             .Where(m => m.UserId == user.Id && m.Status == MembershipStatus.Active)

@@ -35,6 +35,15 @@ public static class DatabaseSeeder
 
         await using var db = new AppDbContext(options, new StaticTenantContext());
 
+        // The permission catalogue is global and must exist even when the first tenant is
+        // created through the public provisioning endpoint.
+        foreach (var code in PermissionCodes)
+        {
+            if (!await db.Permissions.AnyAsync(p => p.Code == code, ct))
+                db.Permissions.Add(new Permission { Code = code, Module = code.Split('.')[0] });
+        }
+        await db.SaveChangesAsync(ct);
+
         if (!await db.Tenants.AnyAsync(ct))
         {
             var tenant = new Tenant
@@ -51,10 +60,6 @@ public static class DatabaseSeeder
             db.Tenants.Add(tenant);
             await db.SaveChangesAsync(ct);
 
-            foreach (var code in PermissionCodes)
-                db.Permissions.Add(new Permission { Code = code, Module = code.Split('.')[0] });
-            await db.SaveChangesAsync(ct);
-
             var admin = new Role { TenantId = tenant.Id, Name = "Admin", IsSystemRole = true };
             var teacher = new Role { TenantId = tenant.Id, Name = "Teacher", IsSystemRole = true };
             var student = new Role { TenantId = tenant.Id, Name = "Student", IsSystemRole = true, IsDefault = true };
@@ -65,7 +70,8 @@ public static class DatabaseSeeder
             var permissions = await db.Permissions.ToListAsync(ct);
             foreach (var p in permissions)
                 db.RolePermissions.Add(new RolePermission
-                { TenantId = tenant.Id, RoleId = admin.Id, PermissionId = p.Id
+                {
+                    TenantId = tenant.Id, RoleId = admin.Id, PermissionId = p.Id
                 });
             await db.SaveChangesAsync(ct);
         }

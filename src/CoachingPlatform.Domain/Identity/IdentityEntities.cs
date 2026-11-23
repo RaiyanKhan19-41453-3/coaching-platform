@@ -90,6 +90,7 @@ public sealed class RefreshToken : GlobalEntity
     public Guid UserId { get; set; }
     public User User { get; set; } = default!;
     public string TokenHash { get; set; } = default!;
+    public Guid? TenantId { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
     public DateTimeOffset? RevokedAt { get; set; }
     public string? ReplacedByTokenHash { get; set; }

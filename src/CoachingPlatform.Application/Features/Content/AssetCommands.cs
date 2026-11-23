@@ -103,7 +103,7 @@ public sealed class GetAssetDownloadUrlHandler(IApplicationDbContext db, IObject
 
 public sealed record DeleteAsset(Guid AssetId) : IRequest<bool>, IRequiresTenant;
 
-public sealed class DeleteAssetHandler(IApplicationDbContext db, IObjectStorage storage)
+public sealed class DeleteAssetHandler(IApplicationDbContext db, IObjectStorage storage, ICurrentUser current)
     : IRequestHandler<DeleteAsset, bool>
 {
     public async Task<bool> Handle(DeleteAsset request, CancellationToken ct)
@@ -113,6 +113,7 @@ public sealed class DeleteAssetHandler(IApplicationDbContext db, IObjectStorage 
         await storage.RemoveAsync(asset.StorageKey, ct);
         asset.IsDeleted = true;
         asset.DeletedAt = DateTimeOffset.UtcNow;
+        asset.DeletedBy = current.UserId;
         await db.SaveChangesAsync(ct);
         return true;
     }

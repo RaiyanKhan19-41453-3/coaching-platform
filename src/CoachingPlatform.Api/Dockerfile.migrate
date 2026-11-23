@@ -1,0 +1,7 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0
+WORKDIR /src
+COPY . .
+RUN dotnet restore src/CoachingPlatform.Api/CoachingPlatform.Api.csproj && dotnet tool restore
+ENTRYPOINT ["dotnet", "ef", "database", "update", \
+  "--project", "src/CoachingPlatform.Infrastructure/CoachingPlatform.Infrastructure.csproj", \
+  "--startup-project", "src/CoachingPlatform.Api/CoachingPlatform.Api.csproj"]

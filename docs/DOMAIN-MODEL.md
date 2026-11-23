@@ -87,3 +87,12 @@ these tables with `AsNoTracking()`.
 `Asset` is a manifest row, not the bytes. `StorageKey` is tenant-prefixed
 (`{tenant}/{yyyy}/{MM}/{guid}-{filename}`); presigned URLs keep large uploads off the API. The
 `ScanStatus` field leaves room for a virus-scanning worker between upload and `Clean`.
+
+
+## Hardening notes
+
+Refresh tokens carry the tenant they were issued for, so rotation preserves the original
+tenant even when a user belongs to several centers. Failed logins increment a counter and
+lock the account for 15 minutes after five attempts. The global permission catalogue is seeded
+independently of the demo tenant so tenants provisioned through the public endpoint always get
+their role permissions.

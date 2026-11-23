@@ -1,4 +1,5 @@
 using CoachingPlatform.Infrastructure.Persistence;
+using CoachingPlatform.Infrastructure.Persistence.Interceptors;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoachingPlatform.Api.Jobs;
@@ -18,5 +19,10 @@ public sealed class JobDbContextFactory(string connectionString)
         TenantId = tenantId, IsSystem = true, UserEmail = "system@coaching-platform"
     });
 
-    public AppDbContext CreateFor(ITenantContext context) => new(_options, context, TimeProvider.System);
+    public AppDbContext CreateFor(ITenantContext context) => new(
+        new DbContextOptionsBuilder<AppDbContext>(_options)
+            .AddInterceptors(new AuditInterceptor(context))
+            .Options,
+        context,
+        TimeProvider.System);
 }

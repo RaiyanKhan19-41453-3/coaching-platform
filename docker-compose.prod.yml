@@ -1,0 +1,57 @@
+# Production overlay: no host ports for internal stores, strict env validation,
+# migrations run as a one-shot job before the API starts.
+services:
+  db:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+  cache:
+    ports: !reset []
+  minio:
+    ports: !reset []
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-coaching}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+
+  migrate:
+    build:
+      context: .
+      dockerfile: src/CoachingPlatform.Api/Dockerfile.migrate
+    environment:
+      ConnectionStrings__Default: "Host=db;Database=${POSTGRES_DB:-coaching};Username=${POSTGRES_USER:-coaching};Password=${POSTGRES_PASSWORD}"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "on-failure"
+
+  api:
+    ports:
+      - "${API_PORT:-8080}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: "Host=db;Database=${POSTGRES_DB:-coaching};Username=${POSTGRES_USER:-coaching};Password=${POSTGRES_PASSWORD}"
+      Jwt__Key: ${JWT_KEY:?JWT_KEY must be a long random secret}
+      Jwt__Issuer: ${JWT_ISSUER:-coaching-platform}
+      Jwt__Audience: ${JWT_AUDIENCE:-coaching-web}
+      Minio__Endpoint: minio:9000
+      Minio__AccessKey: ${MINIO_ROOT_USER:-coaching}
+      Minio__SecretKey: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      Minio__Bucket: coaching
+      Minio__PublicEndpoint: ${MINIO_PUBLIC_ENDPOINT:?MINIO_PUBLIC_ENDPOINT is required}
+      Redis__ConnectionString: cache:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      Seq__ServerUrl: ${SEQ_URL:-}
+      Cors__Origins__0: ${WEB_ORIGIN:-http://localhost:3000}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      minio:
+        condition: service_started
+
+  web:
+    ports:
+      - "${WEB_PORT:-3000}:80"

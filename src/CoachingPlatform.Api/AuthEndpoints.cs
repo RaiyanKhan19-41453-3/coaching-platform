@@ -11,13 +11,14 @@ public static class AuthEndpoints
 
         auth.MapPost("/register-tenant", async (ISender sender, ProvisionTenant cmd)
             => Results.Ok(new { tenantId = await sender.Send(cmd) }))
+            .RequireRateLimiting("auth")
             .WithSummary("Provision a new coaching center with its admin account");
 
         auth.MapPost("/login", async (ISender sender, Login cmd)
-            => Results.Ok(await sender.Send(cmd)));
+            => Results.Ok(await sender.Send(cmd))).RequireRateLimiting("auth");
 
         auth.MapPost("/refresh", async (ISender sender, RefreshAccessToken cmd)
-            => Results.Ok(await sender.Send(cmd)));
+            => Results.Ok(await sender.Send(cmd))).RequireRateLimiting("auth");
 
         // Authenticated route lives in the protected group below (see ApiEndpoints).
         return app;
