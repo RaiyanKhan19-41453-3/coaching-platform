@@ -31,6 +31,8 @@ public sealed class GenerateInstallmentsHandler(IApplicationDbContext db, ICurre
     {
         var fee = await db.Set<FeeStructure>().FirstOrDefaultAsync(f => f.Id == request.FeeStructureId, ct)
                   ?? throw new NotFoundException(nameof(FeeStructure), request.FeeStructureId);
+        if (!await db.Set<Domain.Identity.User>().AnyAsync(u => u.Id == request.StudentId, ct))
+            throw new NotFoundException(nameof(Domain.Identity.User), request.StudentId);
         var instalmentAmount = fee.Amount.Multiply(1m / request.Count).Amount;
         var currency = fee.Amount.Currency;
         Money Instalment() => new(instalmentAmount, currency);

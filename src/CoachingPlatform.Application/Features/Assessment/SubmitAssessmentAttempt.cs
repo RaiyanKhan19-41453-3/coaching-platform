@@ -88,22 +88,25 @@ public sealed class SubmitAttemptHandler(IApplicationDbContext db, ICurrentUser 
         attempt.Score = score;
         attempt.MaxScore = maxPossible;
         db.Set<AssessmentAttempt>().Add(attempt);
-        db.Set<GradeEntry>().Add(new GradeEntry
+        var grade = await db.Set<GradeEntry>().FirstOrDefaultAsync(g =>
+            g.AssessmentId == assessment.Id && g.StudentId == request.StudentId, ct);
+        if (grade is null)
         {
-            TenantId = current.TenantId,
-            StudentId = request.StudentId,
-            BatchId = assessment.BatchId,
-            SubjectId = assessment.SubjectId,
-            AssessmentId = assessment.Id,
-            TermId = null,
-            Category = assessment.Type == AssessmentType.Assignment ? GradeCategory.Assignment
-                     : assessment.Type == AssessmentType.Quiz ? GradeCategory.Quiz : GradeCategory.Exam,
-            Title = assessment.Title,
-            MarksObtained = score,
-            MaxMarks = maxPossible,
-            GradedBy = current.UserId,
-            GradedAt = DateTimeOffset.UtcNow
-        });
+            grade = new GradeEntry
+            {
+                TenantId = current.TenantId, StudentId = request.StudentId,
+                BatchId = assessment.BatchId, SubjectId = assessment.SubjectId,
+                AssessmentId = assessment.Id,
+                Category = assessment.Type == AssessmentType.Assignment ? GradeCategory.Assignment
+                         : assessment.Type == AssessmentType.Quiz ? GradeCategory.Quiz : GradeCategory.Exam,
+                Title = assessment.Title
+            };
+            db.Set<GradeEntry>().Add(grade);
+        }
+        grade.MarksObtained = score;
+        grade.MaxMarks = maxPossible;
+        grade.GradedBy = current.UserId;
+        grade.GradedAt = DateTimeOffset.UtcNow;
         db.Set<OutboxMessage>().Add(new OutboxMessage
         {
             TenantId = current.TenantId,

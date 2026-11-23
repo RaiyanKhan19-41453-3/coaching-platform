@@ -39,7 +39,10 @@ public sealed class MessageTransport : IMessageTransport, IDisposable
         message.Subject = subject;
         message.Body = new TextPart("plain") { Text = body };
         using var client = new SmtpClient();
-        await client.ConnectAsync(_smtpHost!, _smtpPort, MailKit.Security.SecureSocketOptions.StartTls, ct);
+        var secure = _smtpPort == 465
+            ? MailKit.Security.SecureSocketOptions.SslOnConnect
+            : MailKit.Security.SecureSocketOptions.StartTls;
+        await client.ConnectAsync(_smtpHost!, _smtpPort, secure, ct);
         if (!string.IsNullOrWhiteSpace(_smtpUser))
             await client.AuthenticateAsync(_smtpUser!, _smtpPassword!, ct);
         await client.SendAsync(message, ct);

@@ -1,6 +1,7 @@
 using CoachingPlatform.Application.Common;
 using CoachingPlatform.Domain.Common;
 using CoachingPlatform.Domain.Finance;
+using CoachingPlatform.Domain.Tenancy;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -28,11 +29,15 @@ public sealed class CreateDiscountHandler(IApplicationDbContext db, ICurrentUser
     {
         if (await db.Set<Discount>().AnyAsync(d => d.Code == request.Code, ct))
             throw new ConflictException("Discount code already exists.");
+        var tenant = await db.Set<Tenant>().FirstOrDefaultAsync(t => t.Id == current.TenantId, ct)
+                    ?? throw new NotFoundException(nameof(Tenant), current.TenantId);
         var discount = new Discount
         {
-            TenantId = current.TenantId, Code = request.Code, Name = request.Name,
+            TenantId = current.TenantId,
+            IsActive = true, Code = request.Code, Name = request.Name,
             Type = request.Type, Value = request.Value,
-            MaxDiscountAmount = request.MaxDiscountAmount is { } max ? new Money(max, "BDT") : Money.Zero("BDT"),
+            MaxDiscountAmount = request.MaxDiscountAmount is { } max
+                ? new Money(max, tenant.DefaultCurrency) : Money.Zero(tenant.DefaultCurrency),
             CourseId = request.CourseId, ValidFrom = request.ValidFrom, ValidTo = request.ValidTo,
             UsageLimit = request.UsageLimit
         };
@@ -62,7 +67,7 @@ public sealed class CreateScholarshipHandler(IApplicationDbContext db, ICurrentU
     {
         var scholarship = new Scholarship
         {
-            TenantId = current.TenantId, StudentId = request.StudentId, Name = request.Name,
+            TenantId = current.TenantId, StudentId = request.StudentId, IsActive = true, Name = request.Name,
             Type = request.Type, Value = request.Value, StartDate = request.StartDate,
             EndDate = request.EndDate, ApprovedBy = current.UserId
         };

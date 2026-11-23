@@ -77,6 +77,8 @@ public sealed class NotificationDeliveryHandler(IMessageTransport transport, ILo
         var userId = payload.GetProperty("UserId").GetGuid();
         var type = payload.GetProperty("Type").GetString() ?? "notification";
         var title = payload.GetProperty("Title").GetString() ?? "Notification";
+        var body = payload.TryGetProperty("Body", out var bodyElement)
+            ? bodyElement.GetString() ?? title : title;
 
         var user = await db.Set<Domain.Identity.User>().FirstOrDefaultAsync(u => u.Id == userId, ct);
         if (user is null || string.IsNullOrWhiteSpace(user.Email)) return;
@@ -84,13 +86,14 @@ public sealed class NotificationDeliveryHandler(IMessageTransport transport, ILo
         var preferences = await db.Set<NotificationPreference>()
             .Where(p => p.UserId == userId && (p.Type == type || p.Type == "*")).ToListAsync(ct);
 
-        if (preferences.All(p => p.Channel != NotificationChannel.Email || !p.IsEnabled))
-            await transport.SendEmailAsync(user.Email, title, type, ct);
+        var emailPrefs = preferences.Where(p => p.Channel == NotificationChannel.Email).ToList();
+        if (emailPrefs.Count == 0 || emailPrefs.Any(p => p.IsEnabled))
+            await transport.SendEmailAsync(user.Email, title, body, ct);
 
         var phone = user.PhoneNumber;
-        if (!string.IsNullOrWhiteSpace(phone) &&
-            preferences.All(p => p.Channel != NotificationChannel.Sms || !p.IsEnabled))
-            await transport.SendSmsAsync(phone, $"{title}: {type}", ct);
+        var smsPrefs = preferences.Where(p => p.Channel == NotificationChannel.Sms).ToList();
+        if (!string.IsNullOrWhiteSpace(phone) && (smsPrefs.Count == 0 || smsPrefs.Any(p => p.IsEnabled)))
+            await transport.SendSmsAsync(phone, body, ct);
 
         logger.LogDebug("Delivered notification {Type} to {UserId}", type, userId);
     }

@@ -133,7 +133,11 @@ public sealed class CreateInvoiceHandler(IApplicationDbContext db, ICurrentUser 
             PayloadJson = JsonSerializer.Serialize(new { invoice.Id, invoice.InvoiceNumber, invoice.StudentId, invoice.IssueDate, Total = total.Amount, currency }),
             OccurredAt = DateTimeOffset.UtcNow
         });
-        await db.SaveChangesAsync(ct);
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("Discount usage changed concurrently; please retry.");
+        }
         return invoice.Id;
     }
 }

@@ -35,10 +35,9 @@ public sealed class GetChildSummaryHandler(IApplicationDbContext db, ICurrentUse
 {
     public async Task<ChildSummaryDto> Handle(GetChildSummary request, CancellationToken ct)
     {
-        if (!await db.Set<StudentGuardian>().AnyAsync(g =>
-                g.GuardianId == current.UserId && g.StudentId == request.StudentId &&
-                (g.CanViewGrades || g.CanViewFees), ct))
-            throw new ForbiddenException("No guardian access to this student.");
+        var guardian = await db.Set<StudentGuardian>().FirstOrDefaultAsync(g =>
+                g.GuardianId == current.UserId && g.StudentId == request.StudentId, ct)
+            ?? throw new ForbiddenException("No guardian access to this student.");
         var student = await db.Set<User>().FirstOrDefaultAsync(u => u.Id == request.StudentId, ct)
                       ?? throw new NotFoundException(nameof(User), request.StudentId);
         var attendance = await db.Set<AttendanceStat>().Where(a => a.StudentId == request.StudentId)
@@ -51,7 +50,9 @@ public sealed class GetChildSummaryHandler(IApplicationDbContext db, ICurrentUse
         return new ChildSummaryDto(
             student.Id, student.FullName,
             attendance.Count == 0 ? 0m : Math.Round(attendance.Average(a => a.AttendancePercent), 2),
-            fees.Sum(f => f.Paid.Amount), fees.Sum(f => f.Outstanding.Amount),
-            grades.Count == 0 ? 0m : Math.Round(grades.Average(g => g.Average), 2), enrollments);
+            guardian.CanViewFees ? fees.Sum(f => f.Paid.Amount) : 0m,
+            guardian.CanViewFees ? fees.Sum(f => f.Outstanding.Amount) : 0m,
+            !guardian.CanViewGrades || grades.Count == 0 ? 0m : Math.Round(grades.Average(g => g.Average), 2),
+            enrollments);
     }
 }

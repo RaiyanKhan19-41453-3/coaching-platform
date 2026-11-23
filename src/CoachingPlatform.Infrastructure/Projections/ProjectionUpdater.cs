@@ -23,7 +23,7 @@ public static class ProjectionUpdater
         var start = ToUtc(period);
         var end = ToUtc(period.AddMonths(1));
         var sessionIds = await db.ClassSessions
-            .Where(s => s.BatchId == batchId && s.StartUtc >= start && s.StartUtc < end)
+            .Where(s => s.BatchId == batchId && !s.IsCancelled && s.StartUtc >= start && s.StartUtc < end)
             .Select(s => s.Id).ToListAsync(ct);
         var rows = await db.Attendances
             .Where(a => a.StudentId == studentId && sessionIds.Contains(a.SessionId))

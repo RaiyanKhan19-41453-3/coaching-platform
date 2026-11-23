@@ -54,4 +54,22 @@ public class ExtendedFeatureTests(DatabaseFixture fixture) : IntegrationTestBase
         var list = await Sender.Send(new ListAnnouncements());
         Assert.Contains(list, a => a.Id == id && a.Title == "Exam schedule");
     }
+
+    [Fact]
+    public async Task DiscountAndScholarship_AreAppliedToInvoice()
+    {
+        await NewTenantAsync();
+        var student = await NewUserAsync();
+        await Sender.Send(new CreateDiscount("SAVE10", "Ten percent", DiscountType.Percentage,
+            10m, null, null, new DateOnly(2026, 1, 1), null, null));
+        await Sender.Send(new CreateScholarship(student, "Merit", DiscountType.Percentage,
+            5m, new DateOnly(2026, 1, 1), null));
+
+        var invoiceId = await Sender.Send(new CreateInvoice(student, null,
+            new[] { new InvoiceLineInput("Fee", 1, 1000m, "BDT") }, 0m, 0m, "SAVE10"));
+        var invoice = await Db.Invoices.SingleAsync(i => i.Id == invoiceId);
+        Assert.Equal(150m, invoice.Discount.Amount);   // 10% + 5%
+        Assert.Equal(850m, invoice.Total.Amount);
+        Assert.Equal(1, (await Db.Discounts.SingleAsync()).UsageCount);
+    }
 }

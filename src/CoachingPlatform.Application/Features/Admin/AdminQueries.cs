@@ -99,10 +99,16 @@ public sealed class SearchHandler(IApplicationDbContext db) : IRequestHandler<Se
 
 public sealed record ExportStudentData(Guid StudentId) : IRequest<string>, IRequiresTenant;
 
-public sealed class ExportStudentDataHandler(IApplicationDbContext db) : IRequestHandler<ExportStudentData, string>
+public sealed class ExportStudentDataHandler(IApplicationDbContext db, ICurrentUser current)
+    : IRequestHandler<ExportStudentData, string>
 {
     public async Task<string> Handle(ExportStudentData request, CancellationToken ct)
     {
+        if (!current.Roles.Any(r => r is "Admin" or "Teacher") &&
+            current.UserId != request.StudentId &&
+            !await db.Set<Domain.Identity.StudentGuardian>().AnyAsync(g =>
+                g.GuardianId == current.UserId && g.StudentId == request.StudentId, ct))
+            throw new ForbiddenException("Not allowed to export this student's data.");
         var student = await db.Set<Domain.Identity.User>().FirstOrDefaultAsync(u => u.Id == request.StudentId, ct)
                       ?? throw new NotFoundException(nameof(Domain.Identity.User), request.StudentId);
         var enrollments = await db.Set<Domain.Academics.Enrollment>().Where(e => e.StudentId == request.StudentId)
@@ -126,6 +132,8 @@ public sealed class EraseStudentDataHandler(IApplicationDbContext db, ICurrentUs
 {
     public async Task<bool> Handle(EraseStudentData request, CancellationToken ct)
     {
+        if (!current.Roles.Any(r => r == "Admin"))
+            throw new ForbiddenException("Only administrators may erase student data.");
         var student = await db.Set<Domain.Identity.User>().FirstOrDefaultAsync(u => u.Id == request.StudentId, ct)
                       ?? throw new NotFoundException(nameof(Domain.Identity.User), request.StudentId);
         var anonymized = $"erased-{student.Id:N}@invalid.local";

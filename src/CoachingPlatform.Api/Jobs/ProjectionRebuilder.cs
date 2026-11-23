@@ -70,7 +70,7 @@ public sealed class ProjectionRebuilder(JobDbContextFactory factory, ILogger<Pro
                     });
                 }
 
-                var sessionsAll = await db.ClassSessions.Select(s => new
+                var sessionsAll = await db.ClassSessions.Where(s => !s.IsCancelled).Select(s => new
                 {
                     s.Id, s.BatchId, s.StartUtc
                 }).ToListAsync();

@@ -83,7 +83,11 @@ public sealed class RefundPaymentHandler(IApplicationDbContext db, ICurrentUser 
               payment.StudentId, Amount = request.Amount, Currency = currency }),
             OccurredAt = posted
         });
-        await db.SaveChangesAsync(ct);
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("Payment changed concurrently; please retry.");
+        }
         return refund.Id;
     }
 }

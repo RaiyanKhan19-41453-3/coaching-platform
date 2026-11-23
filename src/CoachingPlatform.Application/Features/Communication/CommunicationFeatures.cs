@@ -76,6 +76,8 @@ public sealed class SendMessageHandler(IApplicationDbContext db, ICurrentUser cu
     public async Task<Guid> Handle(SendMessage request, CancellationToken ct)
     {
         var senderId = current.UserId ?? throw new ForbiddenException("No authenticated user.");
+        if (!await db.Set<Domain.Identity.User>().AnyAsync(u => u.Id == request.RecipientId, ct))
+            throw new NotFoundException(nameof(Domain.Identity.User), request.RecipientId);
         Conversation? conversation;
         if (request.ConversationId.HasValue)
         {

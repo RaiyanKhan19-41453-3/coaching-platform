@@ -28,7 +28,7 @@ public sealed class CreateQuestionHandler(IApplicationDbContext db, ICurrentUser
     {
         var question = new Question
         {
-            TenantId = current.TenantId, SubjectId = request.SubjectId, TopicId = request.TopicId,
+            TenantId = current.TenantId, IsActive = true, SubjectId = request.SubjectId, TopicId = request.TopicId,
             Type = request.Type, Difficulty = request.Difficulty, Text = request.Text,
             OptionsJson = request.OptionsJson, CorrectAnswerJson = request.CorrectAnswerJson,
             Explanation = request.Explanation, Marks = request.Marks,

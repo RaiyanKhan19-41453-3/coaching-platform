@@ -27,9 +27,14 @@ public sealed class CreateFeeStructureHandler(IApplicationDbContext db, ICurrent
 {
     public async Task<Guid> Handle(CreateFeeStructure request, CancellationToken ct)
     {
+        if (request.CourseId.HasValue && !await db.Set<Domain.Academics.Course>().AnyAsync(c => c.Id == request.CourseId.Value, ct))
+            throw new NotFoundException("Course", request.CourseId.Value);
+        if (request.BatchId.HasValue && !await db.Set<Domain.Academics.Batch>().AnyAsync(b => b.Id == request.BatchId.Value, ct))
+            throw new NotFoundException("Batch", request.BatchId.Value);
+
         var fee = new FeeStructure
         {
-            TenantId = current.TenantId, CourseId = request.CourseId, BatchId = request.BatchId,
+            TenantId = current.TenantId, IsActive = true, CourseId = request.CourseId, BatchId = request.BatchId,
             Name = request.Name, Code = request.Code, Amount = new Money(request.Amount, request.Currency),
             Frequency = request.Frequency, TaxPercent = request.TaxPercent,
             EffectiveFrom = request.EffectiveFrom, EffectiveTo = request.EffectiveTo

@@ -52,9 +52,13 @@ public sealed class GradeAttemptAnswerHandler(IApplicationDbContext db, ICurrent
         attempt.Status = AttemptStatus.Graded;
         attempt.SubmittedAt ??= DateTimeOffset.UtcNow;
 
-        var grade = await db.Set<GradeEntry>().FirstOrDefaultAsync(g =>
-            g.AssessmentId == attempt.AssessmentId && g.StudentId == attempt.StudentId, ct);
-        if (grade is not null) { grade.MarksObtained = attempt.Score ?? 0m; grade.GradedAt = DateTimeOffset.UtcNow; }
+        var grades = await db.Set<GradeEntry>().Where(g =>
+            g.AssessmentId == attempt.AssessmentId && g.StudentId == attempt.StudentId).ToListAsync(ct);
+        foreach (var grade in grades)
+        {
+            grade.MarksObtained = attempt.Score ?? 0m;
+            grade.GradedAt = DateTimeOffset.UtcNow;
+        }
 
         db.Set<OutboxMessage>().Add(new OutboxMessage
         {

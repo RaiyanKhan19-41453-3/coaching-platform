@@ -4,11 +4,18 @@ namespace CoachingPlatform.Api.RateLimiting;
 
 /// <summary>Global per-tenant quota shared across replicas. Fails open if Redis is down.</summary>
 public sealed class RedisRateLimitMiddleware(
-    RequestDelegate next, IConnectionMultiplexer? redis, IConfiguration configuration)
+    RequestDelegate next, IConfiguration configuration, IConnectionMultiplexer? redis = null)
 {
     public async Task InvokeAsync(HttpContext context)
     {
-        if (redis is not null)
+        var path = context.Request.Path.Value ?? string.Empty;
+        var infrastructurePath = path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
+                                 path.StartsWith("/openapi", StringComparison.OrdinalIgnoreCase) ||
+                                 path.StartsWith("/scalar", StringComparison.OrdinalIgnoreCase) ||
+                                 path.StartsWith("/jobs", StringComparison.OrdinalIgnoreCase) ||
+                                 path.StartsWith("/hubs", StringComparison.OrdinalIgnoreCase);
+
+        if (redis is not null && !infrastructurePath)
         {
             var tenant = context.User?.FindFirst("tenant_id")?.Value;
             var key = string.IsNullOrWhiteSpace(tenant)

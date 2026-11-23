@@ -130,4 +130,29 @@ public class ProjectionTests(DatabaseFixture fixture) : IntegrationTestBase(fixt
         Assert.Equal(3, stat.Absent);
         Assert.Equal(25m, stat.AttendancePercent);
     }
+
+    [Fact]
+    public async Task AttendanceStat_ExcludesCancelledSessions()
+    {
+        await NewTenantAsync();
+        var student = await NewUserAsync();
+        var (courseId, yearId) = await NewCourseAndYearAsync();
+        var batchId = await Sender.Send(new CreateBatch(courseId, yearId, null, "B", "B-CANCEL",
+            new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 31), 30));
+        Db.ClassSessions.Add(new ClassSession
+        {
+            BatchId = batchId,
+            StartUtc = new DateTimeOffset(2026, 11, 5, 10, 0, 0, TimeSpan.Zero),
+            EndUtc = new DateTimeOffset(2026, 11, 5, 12, 0, 0, TimeSpan.Zero),
+            IsCancelled = true, Status = SessionStatus.Cancelled
+        });
+        await Db.SaveChangesAsync();
+
+        await Db.RefreshAttendanceAsync(Ambient.TenantId, student, batchId, new DateOnly(2026, 11, 5));
+        await Db.SaveChangesAsync();
+
+        var stat = await Db.AttendanceStats.SingleAsync(x => x.StudentId == student);
+        Assert.Equal(0, stat.Sessions);
+        Assert.Equal(0m, stat.AttendancePercent);
+    }
 }

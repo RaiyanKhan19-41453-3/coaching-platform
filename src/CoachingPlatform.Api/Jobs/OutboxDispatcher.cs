@@ -74,20 +74,19 @@ public sealed class OutboxDispatcher(
                     .Select(e => e.Entity)
                     .ToList();
 
-                message.ProcessedAt = DateTimeOffset.UtcNow;
-                await db.SaveChangesAsync(ct);
-
-                // Queue durable email/SMS delivery for every notification created here.
+                // Queue delivery events and mark processed in the SAME transaction as the
+                // notifications — a crash cannot leave an undelivered notification behind.
                 foreach (var notice in pushed)
                     db.OutboxMessages.Add(new OutboxMessage
                     {
                         TenantId = notice.TenantId,
                         EventType = EventTypes.NotificationCreated,
                         PayloadJson = JsonSerializer.Serialize(new
-                        { notice.UserId, notice.Type, notice.Title }),
+                        { notice.UserId, notice.Type, notice.Title, notice.Body }),
                         OccurredAt = DateTimeOffset.UtcNow
                     });
-                if (pushed.Count > 0) await db.SaveChangesAsync(ct);
+                message.ProcessedAt = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync(ct);
 
                 // Push only after the transaction commits: a transport failure must not
                 // trigger a retry that would duplicate the notification row.
