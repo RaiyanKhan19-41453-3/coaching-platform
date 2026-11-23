@@ -21,8 +21,12 @@ public sealed class GenerateReportCardHandler(IApplicationDbContext db, IDocumen
             .Where(a => a.StudentId == request.StudentId && a.BatchId == request.BatchId).ToListAsync(ct);
         var grades = await db.Set<Domain.Reporting.GradeSummary>()
             .Where(g => g.StudentId == request.StudentId).ToListAsync(ct);
-        var lines = grades.Select(g => new ReportCardLine($"Subject {g.SubjectId.ToString()[..8]}",
-            g.MarksObtained, g.MaxMarks)).ToList();
+        var subjectIds = grades.Select(g => g.SubjectId).Distinct().ToList();
+        var subjects = await db.Set<Domain.Academics.Subject>()
+            .Where(s => subjectIds.Contains(s.Id)).Select(s => new { s.Id, s.Name }).ToListAsync(ct);
+        var names = subjects.ToDictionary(s => s.Id, s => s.Name);
+        var lines = grades.Select(g => new ReportCardLine(
+            names.GetValueOrDefault(g.SubjectId, "General"), g.MarksObtained, g.MaxMarks)).ToList();
         return generator.GenerateReportCard(new ReportCardData(
             student.FullName, batch.Name,
             attendance.Count == 0 ? 0m : Math.Round(attendance.Average(a => a.AttendancePercent), 2),

@@ -144,6 +144,8 @@ public sealed class EraseStudentDataHandler(IApplicationDbContext db, ICurrentUs
         student.IsDeleted = true;
         student.DeletedAt = DateTimeOffset.UtcNow;
         student.DeletedBy = current.UserId;
+        var auditEntries = await db.Set<AuditLog>().Where(a => a.ActorId == request.StudentId).ToListAsync(ct);
+        foreach (var entry in auditEntries) entry.ActorEmail = null;
         await db.SaveChangesAsync(ct);
         return true;
     }
