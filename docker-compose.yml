@@ -66,6 +66,7 @@ services:
       # Rate limits
       RateLimit__PerTenantPerMinute: ${RATE_TENANT_LIMIT:-6000}
       RateLimit__AuthPerIpPerMinute: ${RATE_AUTH_LIMIT:-100}
+      Integration__ExamKey: ${EXAM_INTEGRATION_KEY:-dev-integration-key}
 
       # Optional email / SMS delivery (empty values = no-op)
       Messaging__SmtpHost: ${SMTP_HOST:-}
