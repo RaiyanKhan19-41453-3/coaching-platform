@@ -59,12 +59,22 @@ if (builder.Environment.IsProduction())
 builder.Services.AddApplication();
 builder.Services.AddControllers();
 builder.Services.AddScoped<IJobService, JobService>();
-builder.Services.AddSingleton<IObjectStorage>(new MinioObjectStorage(
-    builder.Configuration["Minio:Endpoint"] ?? "minio:9000",
-    builder.Configuration["Minio:AccessKey"] ?? "coaching",
-    builder.Configuration["Minio:SecretKey"] ?? "coaching",
-    builder.Configuration["Minio:Bucket"] ?? "coaching",
-    builder.Configuration["Minio:PublicEndpoint"] ?? "http://localhost:9000"));
+if (string.Equals(builder.Configuration["Storage:Provider"], "s3", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddSingleton<IObjectStorage>(new S3ObjectStorage(
+        builder.Configuration["AWS:Region"] ?? "us-east-1",
+        builder.Configuration["AWS:Bucket"] ?? "coaching",
+        builder.Configuration["AWS:AccessKey"], builder.Configuration["AWS:SecretKey"]));
+}
+else
+{
+    builder.Services.AddSingleton<IObjectStorage>(new MinioObjectStorage(
+        builder.Configuration["Minio:Endpoint"] ?? "minio:9000",
+        builder.Configuration["Minio:AccessKey"] ?? "coaching",
+        builder.Configuration["Minio:SecretKey"] ?? "coaching",
+        builder.Configuration["Minio:Bucket"] ?? "coaching",
+        builder.Configuration["Minio:PublicEndpoint"] ?? "http://localhost:9000"));
+}
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ITokenGenerator, JwtTokenGenerator>();
 

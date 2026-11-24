@@ -38,6 +38,11 @@ services:
       Minio__SecretKey: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
       Minio__Bucket: coaching
       Minio__PublicEndpoint: ${MINIO_PUBLIC_ENDPOINT:?MINIO_PUBLIC_ENDPOINT is required}
+      Storage__Provider: ${STORAGE_PROVIDER:-minio}
+      AWS__Region: ${AWS_REGION:-us-east-1}
+      AWS__Bucket: ${AWS_BUCKET:-coaching}
+      AWS__AccessKey: ${AWS_ACCESS_KEY_ID:-}
+      AWS__SecretKey: ${AWS_SECRET_ACCESS_KEY:-}
       Redis__ConnectionString: cache:6379
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_ENDPOINT:-}
       Seq__ServerUrl: ${SEQ_URL:-}

@@ -57,6 +57,11 @@ services:
       Minio__SecretKey: ${MINIO_ROOT_PASSWORD:-coaching}
       Minio__Bucket: coaching
       Minio__PublicEndpoint: "http://localhost:${MINIO_PORT:-9000}"
+      Storage__Provider: ${STORAGE_PROVIDER:-minio}
+      AWS__Region: ${AWS_REGION:-us-east-1}
+      AWS__Bucket: ${AWS_BUCKET:-coaching}
+      AWS__AccessKey: ${AWS_ACCESS_KEY_ID:-}
+      AWS__SecretKey: ${AWS_SECRET_ACCESS_KEY:-}
       Cors__Origins__0: "http://localhost:${WEB_PORT:-13000}"
 
       # Optional observability

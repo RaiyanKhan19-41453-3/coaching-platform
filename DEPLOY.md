@@ -31,6 +31,16 @@ curl -fsS http://<host>:18081/openapi/v1.json
 curl -fsS http://<host>:13000/
 ```
 
+## Switching object storage to AWS S3
+
+Set `STORAGE_PROVIDER=s3`, `AWS_REGION`, `AWS_BUCKET`, and either an IAM role or
+`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`. No code change or redeploy of images is needed — the
+API selects `S3ObjectStorage` from the `IObjectStorage` interface at startup. Copy existing
+objects from MinIO to the bucket (storage keys in Postgres stay identical), set bucket CORS for
+the web origin, and grant `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket`.
+Presigned URLs stored in `Asset.Url` expire and regenerate automatically. The MinIO container
+can then be stopped.
+
 ## Integration
 
 The exam service posts published results to `POST /api/integrations/exam-results` with header
