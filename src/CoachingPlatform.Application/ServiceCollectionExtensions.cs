@@ -31,6 +31,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReportingService, ReportingService>();
         services.AddScoped<ICommunicationService, CommunicationService>();
         services.AddScoped<IParentService, ParentService>();
+        services.AddScoped<ICrmService, CrmService>();
+        services.AddScoped<IUserManagementService, UserManagementService>();
+        services.AddScoped<ITimetableService, TimetableService>();
         return services;
     }
 }

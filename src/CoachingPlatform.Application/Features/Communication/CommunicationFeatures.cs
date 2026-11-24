@@ -1,11 +1,14 @@
 using CoachingPlatform.Application.Common;
 using CoachingPlatform.Application.Outbox;
+using CoachingPlatform.Domain.Academics;
+using CoachingPlatform.Domain.Identity;
 using CoachingPlatform.Domain.Common;
 using CoachingPlatform.Domain.Communication;
 using CoachingPlatform.Domain.Platform;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace CoachingPlatform.Application.Features.Communication;
 
@@ -36,8 +39,84 @@ public sealed class CreateAnnouncementHandler(IApplicationDbContext db, ICurrent
         };
         db.Set<Announcement>().Add(announcement);
         await db.SaveChangesAsync(ct);
+
+        // Fan out to the targeted audience (roles, specific users or batches).
+        var audience = AnnouncementAudience.Parse(request.TargetAudienceJson);
+        var recipientIds = await AnnouncementAudience.ResolveRecipientsAsync(db, current.TenantId, audience, ct);
+        foreach (var userId in recipientIds.Take(1000))
+        {
+            db.Set<Notification>().Add(new Notification
+            {
+                TenantId = current.TenantId, UserId = userId,
+                Channel = NotificationChannel.InApp, Type = "announcement.published",
+                Title = request.Title, Body = request.Body,
+                RelatedEntityType = nameof(Announcement), RelatedEntityId = announcement.Id,
+                SentAt = DateTimeOffset.UtcNow
+            });
+            db.Set<OutboxMessage>().Add(new OutboxMessage
+            {
+                TenantId = current.TenantId, EventType = EventTypes.NotificationCreated,
+                PayloadJson = JsonSerializer.Serialize(new
+                { UserId = userId, Type = "announcement.published", Title = request.Title }),
+                OccurredAt = DateTimeOffset.UtcNow
+            });
+        }
+        if (recipientIds.Count > 0) await db.SaveChangesAsync(ct);
         return announcement.Id;
     }
+}
+
+internal static class AnnouncementAudience
+{
+    public static Audience Parse(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new Audience([], [], []);
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            return new Audience(
+                Read(root, "roles"), Read(root, "userIds"), Read(root, "batchIds"));
+        }
+        catch (JsonException) { return new Audience([], [], []); }
+    }
+
+    private static List<string> Read(JsonElement root, string property)
+        => root.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.Array
+            ? value.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList()
+            : [];
+
+internal static async Task<List<Guid>> ResolveRecipientsAsync(
+    IApplicationDbContext db, Guid tenantId, AnnouncementAudience.Audience audience, CancellationToken ct)
+{
+    var ids = new HashSet<Guid>();
+    foreach (var raw in audience.UserIds) if (Guid.TryParse(raw, out var id)) ids.Add(id);
+
+    if (audience.Roles.Count > 0)
+    {
+        var matches = await (from ur in db.Set<UserRole>()
+                             join role in db.Set<Role>() on ur.RoleId equals role.Id
+                             where audience.Roles.Contains(role.Name)
+                             select ur.UserId).ToListAsync(ct);
+        foreach (var id in matches) ids.Add(id);
+    }
+    if (audience.BatchIds.Count > 0)
+    {
+        var batchIds = audience.BatchIds.Where(x => Guid.TryParse(x, out _)).Select(Guid.Parse).ToList();
+        var students = await db.Set<Enrollment>()
+            .Where(e => batchIds.Contains(e.BatchId)).Select(e => e.StudentId).ToListAsync(ct);
+        foreach (var id in students) ids.Add(id);
+    }
+    if (audience.Roles.Count == 0 && audience.UserIds.Count == 0 && audience.BatchIds.Count == 0)
+    {
+        var all = await db.Set<TenantMembership>()
+            .Where(m => m.TenantId == tenantId).Select(m => m.UserId).ToListAsync(ct);
+        foreach (var id in all) ids.Add(id);
+    }
+    return ids.ToList();
+}
+
+    internal sealed record Audience(List<string> Roles, List<string> UserIds, List<string> BatchIds);
 }
 
 public sealed record ListAnnouncements(int Page = 1, int PageSize = 20)
