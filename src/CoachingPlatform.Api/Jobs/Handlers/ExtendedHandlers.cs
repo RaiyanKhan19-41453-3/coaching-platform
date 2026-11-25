@@ -4,6 +4,7 @@ using CoachingPlatform.Application.Outbox;
 using CoachingPlatform.Domain.Common;
 using CoachingPlatform.Domain.Communication;
 using CoachingPlatform.Infrastructure.Persistence;
+using Microsoft.AspNetCore.SignalR;
 using CoachingPlatform.Infrastructure.Projections;
 using Microsoft.EntityFrameworkCore;
 
@@ -67,7 +68,8 @@ public sealed class AssessmentGradedHandler : IOutboxEventHandler
 }
 
 /// <summary>Delivers persisted notifications through email/SMS according to preferences.</summary>
-public sealed class NotificationDeliveryHandler(IMessageTransport transport, ILogger<NotificationDeliveryHandler> logger)
+public sealed class NotificationDeliveryHandler(IMessageTransport transport,
+    IHubContext<NotificationHub> hub, ILogger<NotificationDeliveryHandler> logger)
     : IOutboxEventHandler
 {
     public string EventType => EventTypes.NotificationCreated;
@@ -95,6 +97,10 @@ public sealed class NotificationDeliveryHandler(IMessageTransport transport, ILo
         if (!string.IsNullOrWhiteSpace(phone) && (smsPrefs.Count == 0 || smsPrefs.Any(p => p.IsEnabled)))
             await transport.SendSmsAsync(phone, body, ct);
 
+        await hub.Clients.Group($"user:{userId}").SendAsync("notification", new
+        {
+            id = Guid.NewGuid(), type, title, body, sentAt = DateTimeOffset.UtcNow
+        }, ct);
         logger.LogDebug("Delivered notification {Type} to {UserId}", type, userId);
     }
 }

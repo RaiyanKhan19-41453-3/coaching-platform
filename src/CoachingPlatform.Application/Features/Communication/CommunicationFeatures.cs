@@ -130,7 +130,8 @@ public sealed class FanOutAnnouncementHandler(IApplicationDbContext db)
             {
                 TenantId = announcement.TenantId, EventType = EventTypes.NotificationCreated,
                 PayloadJson = JsonSerializer.Serialize(new
-                { UserId = userId, Type = "announcement.published", Title = announcement.Title }),
+                { UserId = userId, Type = "announcement.published", Title = announcement.Title,
+                  Body = announcement.Body }),
                 OccurredAt = now
             });
         }
