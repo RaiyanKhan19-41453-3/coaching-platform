@@ -267,6 +267,7 @@ using (var scope = app.Services.CreateScope())
 
 RecurringJob.AddOrUpdate<OutboxDispatcher>("outbox-dispatch", job => job.DispatchAsync(), "*/10 * * * * *");
 RecurringJob.AddOrUpdate<RefreshTokenCleanup>("refresh-token-cleanup", job => job.CleanupAsync(), Cron.Daily);
+RecurringJob.AddOrUpdate<AnnouncementFanoutWorker>("announcement-fanout", w => w.DispatchAsync(), "*/1 * * * * *");
 RecurringJob.AddOrUpdate<ProjectionRebuilder>("projection-rebuild", job => job.RebuildAsync(), Cron.Daily);
 
 app.Run();

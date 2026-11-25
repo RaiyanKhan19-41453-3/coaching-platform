@@ -13,4 +13,5 @@ public static class EventTypes
     public const string EnrollmentStatusChanged = "enrollment.status_changed";
     public const string NotificationCreated = "notification.created";
     public const string AssessmentGraded = "assessment.graded";
+    public const string AnnouncementCreated = "announcement.created";
 }

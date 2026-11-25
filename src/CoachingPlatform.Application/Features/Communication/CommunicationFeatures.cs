@@ -38,30 +38,13 @@ public sealed class CreateAnnouncementHandler(IApplicationDbContext db, ICurrent
             PublishedAt = DateTimeOffset.UtcNow, ExpiresAt = request.ExpiresAt
         };
         db.Set<Announcement>().Add(announcement);
-        await db.SaveChangesAsync(ct);
-
-        // Fan out to the targeted audience (roles, specific users or batches).
-        var audience = AnnouncementAudience.Parse(request.TargetAudienceJson);
-        var recipientIds = await AnnouncementAudience.ResolveRecipientsAsync(db, current.TenantId, audience, ct);
-        foreach (var userId in recipientIds.Take(1000))
+        db.Set<OutboxMessage>().Add(new OutboxMessage
         {
-            db.Set<Notification>().Add(new Notification
-            {
-                TenantId = current.TenantId, UserId = userId,
-                Channel = NotificationChannel.InApp, Type = "announcement.published",
-                Title = request.Title, Body = request.Body,
-                RelatedEntityType = nameof(Announcement), RelatedEntityId = announcement.Id,
-                SentAt = DateTimeOffset.UtcNow
-            });
-            db.Set<OutboxMessage>().Add(new OutboxMessage
-            {
-                TenantId = current.TenantId, EventType = EventTypes.NotificationCreated,
-                PayloadJson = JsonSerializer.Serialize(new
-                { UserId = userId, Type = "announcement.published", Title = request.Title }),
-                OccurredAt = DateTimeOffset.UtcNow
-            });
-        }
-        if (recipientIds.Count > 0) await db.SaveChangesAsync(ct);
+            TenantId = current.TenantId, EventType = EventTypes.AnnouncementCreated,
+            PayloadJson = JsonSerializer.Serialize(new { announcement.Id }),
+            OccurredAt = DateTimeOffset.UtcNow
+        });
+        await db.SaveChangesAsync(ct);
         return announcement.Id;
     }
 }
@@ -117,6 +100,43 @@ internal static async Task<List<Guid>> ResolveRecipientsAsync(
 }
 
     internal sealed record Audience(List<string> Roles, List<string> UserIds, List<string> BatchIds);
+}
+
+public sealed record FanOutAnnouncement(Guid AnnouncementId) : IRequest<int>;
+
+public sealed class FanOutAnnouncementHandler(IApplicationDbContext db)
+    : IRequestHandler<FanOutAnnouncement, int>
+{
+    public async Task<int> Handle(FanOutAnnouncement request, CancellationToken ct)
+    {
+        var announcement = await db.Set<Announcement>().IgnoreQueryFilters()
+            .FirstOrDefaultAsync(a => a.Id == request.AnnouncementId, ct)
+            ?? throw new NotFoundException(nameof(Announcement), request.AnnouncementId);
+        var audience = AnnouncementAudience.Parse(announcement.TargetAudienceJson);
+        var recipients = await AnnouncementAudience.ResolveRecipientsAsync(
+            db, announcement.TenantId, audience, ct);
+        var now = DateTimeOffset.UtcNow;
+        foreach (var userId in recipients)
+        {
+            db.Set<Notification>().Add(new Notification
+            {
+                TenantId = announcement.TenantId, UserId = userId,
+                Channel = NotificationChannel.InApp, Type = "announcement.published",
+                Title = announcement.Title, Body = announcement.Body,
+                RelatedEntityType = nameof(Announcement), RelatedEntityId = announcement.Id,
+                SentAt = now
+            });
+            db.Set<OutboxMessage>().Add(new OutboxMessage
+            {
+                TenantId = announcement.TenantId, EventType = EventTypes.NotificationCreated,
+                PayloadJson = JsonSerializer.Serialize(new
+                { UserId = userId, Type = "announcement.published", Title = announcement.Title }),
+                OccurredAt = now
+            });
+        }
+        if (recipients.Count > 0) await db.SaveChangesAsync(ct);
+        return recipients.Count;
+    }
 }
 
 public sealed record ListAnnouncements(int Page = 1, int PageSize = 20)

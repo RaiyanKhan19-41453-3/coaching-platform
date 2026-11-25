@@ -7,7 +7,7 @@ namespace CoachingPlatform.Api.Controllers;
 
 [ApiController]
 [Route("api/crm")]
-[Authorize]
+[Authorize(Roles = "Admin,Teacher")]
 [Produces("application/json")]
 public sealed class CrmController(ICrmService crm) : ControllerBase
 {

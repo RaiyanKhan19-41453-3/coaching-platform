@@ -99,6 +99,8 @@ public class NewFeaturesTests(DatabaseFixture fixture) : IntegrationTestBase(fix
 
         await Sender.Send(new CreateAnnouncement("Exam tomorrow", "Bring your ID",
             "{\"roles\":[\"Student\"]}", AnnouncementPriority.High, true, null));
+        var announcementId = (await Db.Announcements.SingleAsync()).Id;
+        await Sender.Send(new FanOutAnnouncement(announcementId));
 
         Assert.True(await Db.Notifications.AnyAsync(n =>
             n.UserId == student && n.Type == "announcement.published"));
