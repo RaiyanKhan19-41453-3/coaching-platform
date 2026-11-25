@@ -12,10 +12,12 @@ namespace CoachingPlatform.Api.Controllers;
 public sealed class AssetsController(IAssetService assets) : ControllerBase
 {
     [HttpPost("upload-url")]
+    [Authorize(Roles = "Admin,Teacher")]
     public async Task<IActionResult> RequestUpload([FromBody] RequestUploadRequest request, CancellationToken ct)
         => Ok(await assets.RequestUploadAsync(request, ct));
 
     [HttpPost("{id:guid}/complete")]
+    [Authorize(Roles = "Admin,Teacher")]
     public async Task<IActionResult> Complete([FromRoute] Guid id, CancellationToken ct)
         => Ok(await assets.ConfirmUploadAsync(id, ct));
 
@@ -28,10 +30,12 @@ public sealed class AssetsController(IAssetService assets) : ControllerBase
         => Ok(await assets.ListAsync(ct));
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin,Teacher")]
     public async Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken ct)
         => Ok(new { deleted = await assets.DeleteAsync(id, ct) });
 
     [HttpPost("materials")]
+    [Authorize(Roles = "Admin,Teacher")]
     public async Task<IActionResult> AttachMaterial([FromBody] AttachMaterialRequest request, CancellationToken ct)
         => Ok(await assets.AttachMaterialAsync(request, ct));
 
@@ -40,6 +44,7 @@ public sealed class AssetsController(IAssetService assets) : ControllerBase
         => Ok(await assets.ListMaterialsAsync(batchId, topicId, ct));
 
     [HttpPost("materials/{materialId:guid}/publish")]
+    [Authorize(Roles = "Admin,Teacher")]
     public async Task<IActionResult> PublishMaterial([FromRoute] Guid materialId,
         [FromBody] PublishMaterialRequest request, CancellationToken ct)
         => Ok(new { published = await assets.PublishMaterialAsync(materialId, request, ct) });

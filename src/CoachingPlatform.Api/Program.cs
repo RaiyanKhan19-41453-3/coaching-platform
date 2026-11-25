@@ -91,6 +91,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "coaching-platform",
             ValidAudience = builder.Configuration["Jwt:Audience"] ?? "coaching-web",
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ClockSkew = TimeSpan.FromSeconds(30),
             NameClaimType = "sub",
             RoleClaimType = "role"
         };
@@ -265,9 +266,9 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-RecurringJob.AddOrUpdate<OutboxDispatcher>("outbox-dispatch", job => job.DispatchAsync(), "*/10 * * * * *");
+RecurringJob.AddOrUpdate<OutboxDispatcher>("outbox-dispatch", job => job.DispatchAsync(), "*/5 * * * * *");
 RecurringJob.AddOrUpdate<RefreshTokenCleanup>("refresh-token-cleanup", job => job.CleanupAsync(), Cron.Daily);
-RecurringJob.AddOrUpdate<AnnouncementFanoutWorker>("announcement-fanout", w => w.DispatchAsync(), "*/1 * * * * *");
+RecurringJob.AddOrUpdate<AnnouncementFanoutWorker>("announcement-fanout", w => w.DispatchAsync(), "*/5 * * * * *");
 RecurringJob.AddOrUpdate<ProjectionRebuilder>("projection-rebuild", job => job.RebuildAsync(), Cron.Daily);
 
 app.Run();

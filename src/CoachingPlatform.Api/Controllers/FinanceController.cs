@@ -8,7 +8,7 @@ namespace CoachingPlatform.Api.Controllers;
 
 [ApiController]
 [Route("api")]
-[Authorize]
+[Authorize(Roles = "Admin,Teacher")]
 [Produces("application/json")]
 public sealed class FinanceController(IFinanceService finance) : ControllerBase
 {

@@ -12,6 +12,7 @@ namespace CoachingPlatform.Api.Controllers;
 public sealed class CommunicationController(ICommunicationService communication) : ControllerBase
 {
     [HttpPost("announcements")]
+    [Authorize(Roles = "Admin,Teacher")]
     public async Task<IActionResult> CreateAnnouncement([FromBody] CreateAnnouncementRequest request, CancellationToken ct)
         => Ok(await communication.CreateAnnouncementAsync(request, ct));
 

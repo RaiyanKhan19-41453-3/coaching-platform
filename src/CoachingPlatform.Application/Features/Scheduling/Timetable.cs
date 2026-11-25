@@ -72,6 +72,10 @@ public sealed class CheckRoomAvailabilityHandler(IApplicationDbContext db)
     : IRequestHandler<CheckRoomAvailability, bool>
 {
     public async Task<bool> Handle(CheckRoomAvailability r, CancellationToken ct)
-        => !await db.Set<ClassSession>().AnyAsync(s =>
+    {
+        if (!await db.Set<Room>().AnyAsync(x => x.Id == r.RoomId, ct))
+            throw new NotFoundException(nameof(Room), r.RoomId);
+        return !await db.Set<ClassSession>().AnyAsync(s =>
             s.RoomId == r.RoomId && !s.IsCancelled && s.StartUtc < r.EndUtc && s.EndUtc > r.StartUtc, ct);
+    }
 }

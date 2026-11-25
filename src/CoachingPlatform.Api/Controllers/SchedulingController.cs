@@ -7,7 +7,7 @@ namespace CoachingPlatform.Api.Controllers;
 
 [ApiController]
 [Route("api")]
-[Authorize]
+[Authorize(Roles = "Admin,Teacher")]
 [Produces("application/json")]
 public sealed class SchedulingController(ISchedulingService scheduling) : ControllerBase
 {

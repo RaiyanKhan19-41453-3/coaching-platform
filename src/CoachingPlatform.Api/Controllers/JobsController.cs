@@ -6,7 +6,7 @@ namespace CoachingPlatform.Api.Controllers;
 
 [ApiController]
 [Route("api/jobs")]
-[Authorize]
+[Authorize(Roles = "Admin,Teacher")]
 [Produces("application/json")]
 public sealed class JobsController(IJobService jobs) : ControllerBase
 {

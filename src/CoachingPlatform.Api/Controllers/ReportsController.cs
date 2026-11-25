@@ -8,7 +8,7 @@ namespace CoachingPlatform.Api.Controllers;
 
 [ApiController]
 [Route("api/reports")]
-[Authorize]
+[Authorize(Roles = "Admin,Teacher")]
 [Produces("application/json")]
 public sealed class ReportsController(IReportingService reports) : ControllerBase
 {

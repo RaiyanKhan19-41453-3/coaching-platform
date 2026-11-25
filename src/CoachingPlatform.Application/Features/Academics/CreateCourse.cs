@@ -17,6 +17,7 @@ public sealed class CreateCourseValidator : AbstractValidator<CreateCourse>
         RuleFor(x => x.Code).NotEmpty().MaximumLength(50);
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.DurationMonths).InclusiveBetween(1, 120);
+        RuleFor(x => x.Level).IsInEnum();
     }
 }
 
