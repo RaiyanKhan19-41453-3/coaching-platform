@@ -1,274 +1,143 @@
 # Coaching Platform
 
-A multi-tenant coaching-center management system built as a **.NET 10 modular monolith** with a **React** frontend. Everything runs in Docker — no local SDK, Node or database install required.
+A **multi-tenant, production-shaped coaching-center management system** built with .NET 10, EF Core, PostgreSQL, Redis, MinIO/AWS S3 and React. One deployment serves many isolated coaching centers. The architecture is a conventional layered modular monolith (controllers → services → MediatR use cases → EF Core), ready to be split into microservices.
 
-## Run it
+> Companion service: [Proctored Exam Service](https://github.com/RaiyanKhan19-41453-3/proctored-exam-service) · End-to-end tests: [coaching-e2e](https://github.com/RaiyanKhan19-41453-3/coaching-e2e)
+
+## Contents
+
+- [Quick start](#quick-start)
+- [Architecture](#architecture)
+- [Features](#features)
+- [Tenancy, security and consistency](#tenancy-security-and-consistency)
+- [Background jobs](#background-jobs)
+- [Configuration](#configuration)
+- [Deployment](#deployment)
+- [Testing](#testing)
+- [Known boundaries](#known-boundaries)
+
+## Quick start
 
 ```bash
-cp .env.example .env          # optional; sensible defaults are built in
+cp .env.example .env       # optional — safe development defaults are built in
 docker compose up -d --build
 ```
 
-| Service | URL | Notes |
+| Service | URL | Purpose |
 | --- | --- | --- |
-| Web | http://localhost:13000 | React (Vite build served by Nginx) |
-| API | http://localhost:18081 | ASP.NET Core, OpenAPI-ready minimal API |
-| Health | http://localhost:18081/health/ready | Postgres readiness |
-| SignalR | http://localhost:18081/hubs/notifications | Real-time hub |
-| Postgres | localhost:15432 | `coaching` / `coaching` |
-| Redis | localhost:16379 | SignalR backplane for multi-replica push |
-| MinIO | localhost:9000 | Object storage (console :9001) |
+| Web | http://localhost:13000 | React app (login, notifications, material uploads) |
+| API | http://localhost:18081 | ASP.NET Core controllers |
+| OpenAPI / Scalar | http://localhost:18081/openapi/v1.json · /scalar/v1 | API contract and interactive docs |
+| Health | http://localhost:18081/health/ready · /health/live | Postgres + Redis readiness |
+| SignalR | http://localhost:18081/hubs/notifications | Authenticated real-time notifications |
+| Hangfire | http://localhost:18081/jobs | Background job dashboard (Development) |
+| Postgres | localhost:15432 | Application data |
+| Redis | localhost:16379 | SignalR backplane + global rate limits |
+| MinIO | localhost:9000 (console 9001) | Object storage for files |
 
-Optional services:
+Optional admin tooling: `docker compose --profile tools up -d` (pgAdmin on :5050).
 
-```bash
-docker compose --profile tools up -d     # pgAdmin (:5050)
-```
-
-Migrations are applied and demo data is seeded automatically by the API at startup (with retry while Postgres boots).
-
-## Solution layout
-
-```
-src/CoachingPlatform.Domain          Pure domain: entities, value objects, enums, domain policies (no EF dependency)
-src/CoachingPlatform.Application     CQRS command/query slices, application service interfaces + implementations,
-                                     API DTOs, MediatR pipeline, FluentValidation, domain-facing abstractions
-src/CoachingPlatform.Infrastructure  EF Core 10 model, configurations, audit interceptor, Npgsql
-src/CoachingPlatform.Api             Controllers, JWT, tenant resolution, health checks, SignalR, Hangfire jobs
-                                     Controllers live in Api/Controllers, grouped by bounded context
-web                                  React + Vite + TypeScript, Nginx proxy
-```
-
-## Domain modules
-
-| Module | Aggregates |
-| --- | --- |
-| Tenancy | `Tenant`, `TenantSetting`, `FeatureFlag` |
-| Identity | `User`, `TenantMembership`, `Role`, `Permission`, `RolePermission`, `UserRole`, `RefreshToken`, `StudentGuardian` |
-| Academics | `AcademicYear`, `Term`, `Course`, `Subject`, `Topic`, `Batch`, `BatchTeacher`, `Enrollment`, `BatchTopic`, `LearningMaterial` |
-| Scheduling | `Room`, `ScheduleRule`, `ClassSession`, `Attendance`, `LeaveRequest` |
-| Assessment | `Question`, `Assessment`, `AssessmentQuestion`, `AssessmentAttempt`, `StudentAnswer`, `GradeEntry`, `Rubric`, `RubricCriterion` |
-| Finance | `FeeStructure`, `Invoice`, `InvoiceLine`, `Payment`, `Discount`, `Scholarship`, `LedgerEntry`, `Expense`, `Refund` |
-| Communication | `Announcement`, `Notification`, `NotificationPreference`, `Conversation`, `ConversationParticipant`, `Message`, `MessageReceipt` |
-| CRM | `Lead`, `AdmissionApplication`, `ApplicationDocument`, `FollowUp` |
-| Content | `Asset` |
-| Platform | `AuditLog`, `OutboxMessage` |
-
-See [docs/DOMAIN-MODEL.md](docs/DOMAIN-MODEL.md) for the design decisions behind the schema.
-
-## Cross-cutting design
-
-- **Tenant isolation** — every tenant row carries `TenantId`; `AppDbContext` builds a global query filter per entity and the audit interceptor stamps new rows. Unique indexes are composite with `TenantId` and filtered on `IsDeleted = false`.
-- **Soft delete** — `ISoftDeletable` with `DeletedAt`/`DeletedBy`, honoured by the same global filter.
-- **Concurrency** — every mutable row carries a `RowVersion` token; the audit interceptor rotates it on each write so EF emits optimistic-concurrency `WHERE` clauses (409 on conflict).
-- **Money** — `Money` is an owned type (`decimal(18,2)` + ISO currency) so currency never gets lost.
-- **Audit** — `AuditInterceptor` appends an `AuditLog` row with a JSON change set for every insert/update/delete.
-- **Transactional outbox** — `OutboxMessage` is the pattern for reliable domain events (notification dispatch, ledger posting).
-- **Indexing** — every foreign key and high-traffic query path has an explicit index.
-
-## CQRS slices
-
-`ISender.Send(...)` is the only way into the write model. Each slice is one file containing its
-request, FluentValidation validator and handler:
-
-| Area | Commands / queries |
-| --- | --- |
-| Academics | `CreateCourse`, `CreateBatch`, `EnrollStudent`, `GetBatches` |
-| Scheduling | `CreateScheduleRule`, `GenerateSessions`, `MarkAttendance`, `GetSessionAttendance` |
-| Assessment | `CreateAssessment`, `SubmitAttempt` (auto-grades objective types, writes `GradeEntry`) |
-| Finance | `CreateInvoice`, `RecordPayment` (updates invoice, posts double-entry ledger rows) |
-
-MediatR pipeline: `LoggingBehavior` → `TenantGuardBehavior` → `ValidationBehavior` → handler.
-`IRequiresTenant` requests are rejected with 403 when no tenant is resolved.
-
-## Authentication
-
-All `/api/*` business endpoints require a bearer token. Auth endpoints are public:
-
-```bash
-# 1. Provision a center + admin in one transaction
-curl -X POST localhost:18081/api/auth/register-tenant -H 'Content-Type: application/json' \
-  -d '{"name":"Star Coaching","slug":"star","adminEmail":"admin@star.local","adminPassword":"Password123!","adminFirstName":"Alice","adminLastName":"Admin"}'
-
-# 2. Login (tenantSlug optional when the user has one membership)
-curl -X POST localhost:18081/api/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"admin@star.local","password":"Password123!","tenantSlug":"star"}'
-
-# 3. Use the accessToken as: Authorization: Bearer <token>
-curl localhost:18081/api/auth/me -H 'Authorization: Bearer <token>'
-```
-
-- Access tokens are 30-minute HS256 JWTs carrying `sub`, `email`, `tenant_id` and `role` claims.
-- Refresh tokens are stored **hashed**, expire in 14 days and **rotate** on every refresh (old token is revoked).
-- Passwords use PBKDF2-SHA256 with a per-user salt and constant-time comparison.
-- Override `Jwt__Key` in `.env` for anything but local development.
-
-## Background jobs (Hangfire)
-
-Hangfire uses its own `hangfire` schema in the same Postgres database. Recurring jobs:
-
-| Job | Schedule | Purpose |
-| --- | --- | --- |
-| `outbox-dispatch` | every minute | Drains `OutboxMessages`, dispatches to typed handlers, stamps `ProcessedAt`; retries 5× then dead-letters |
-| `refresh-token-cleanup` | daily | Deletes refresh tokens expired more than 30 days ago |
-
-Events handled today: `tenant.provisioned`, `enrollment.created`, `attendance.marked`,
-`assessment.submitted`, `invoice.created`, `payment.received`. Each event and its `ProcessedAt`
-stamp commit in **one transaction**, so a retry cannot duplicate side effects.
-
-Dashboard: http://localhost:18081/jobs (Development only). Manual drain:
-`POST /api/jobs/outbox/dispatch` with a bearer token.
-
-## Object storage (MinIO)
-
-File bytes never flow through the API. `POST /api/assets/upload-url` creates an `Asset` row and
-returns a 15-minute presigned PUT URL; the client uploads directly to MinIO, then calls
-`POST /api/assets/{id}/complete` to verify the object and mark it clean. Downloads use short-lived
-presigned GET URLs.
-
-```
-POST /api/assets/upload-url      { fileName, contentType, sizeBytes, ownerType, ownerId }
-POST /api/assets/{id}/complete
-GET  /api/assets/{id}/url
-GET  /api/assets
-DELETE /api/assets/{id}
-```
-
-The adapter signs URLs with the browser-reachable host (`Minio:PublicEndpoint`) while server-side
-bucket operations use the container endpoint (`Minio:Endpoint`). The bucket is created on startup.
-MinIO's default CORS already permits the web origin; a bucket-level rule can be added if needed.
-
-## Reporting read models
-
-Write tables are never queried by dashboards. Four projection tables are maintained from the
-outbox and a nightly rebuild:
-
-| Projection | Grain | Fed by |
-| --- | --- | --- |
-| `AttendanceStat` | student × batch × month | `attendance.marked` |
-| `FeeSummary` | student × month | `invoice.created`, `payment.received` |
-| `BatchUtilization` | batch | `enrollment.created` |
-| `GradeSummary` | student × subject | `assessment.submitted` |
-
-Endpoints (JWT required, read-only, no-tracking):
-
-```
-GET /api/reports/dashboard
-GET /api/reports/attendance?batchId=&studentId=&from=&to=
-GET /api/reports/fees?studentId=&from=&to=
-GET /api/reports/utilization
-GET /api/reports/grades?studentId=&subjectId=
-POST /api/jobs/projections/rebuild     # manual/nightly repair
-```
-
-The `projection-rebuild` Hangfire job (daily) recomputes every projection from the write tables,
-so backfills and drift repair are a single operation. Incremental handlers and the rebuild
-normalise periods to the first of the month, so they produce identical rows.
-
-## Concurrency & load behaviour
-
-Under simultaneous load the system keeps data consistent by **failing conflicts safely**:
-
-- Tenant isolation is enforced by global query filters on every tenant row.
-- Mutable aggregates (`Invoice`, `Batch`, `User`, `RefreshToken`, attendance) carry a concurrency
-  token. Two writers cannot both win — the loser gets a structured **409** instead of silently
-  overwriting. Concurrency tests prove two enrolments never exceed a batch's capacity and two
-  payments never exceed an invoice's total.
-- Duplicate keys (gateway transaction IDs, unique enrolment, generated sessions) are enforced by
-  database indexes.
-- Outbox dispatch and projection rebuild share a Postgres advisory lock, so they can never
-  interleave; the dispatch job runs every 10 seconds in batches of 500.
-- Rate limits are configurable (`RateLimit__PerTenantPerMinute`, `RateLimit__AuthPerIpPerMinute`).
-  Exceeding them returns 429 — a deliberate throttle, not data loss.
-
-Known scale boundary: the in-process rate limiter counts per API replica, not globally. With
-multiple replicas, effective limits multiply by replica count; add a Redis-backed limiter if you
-need a strict global quota. The API is otherwise stateless, Hangfire coordinates through
-Postgres, and SignalR uses the Redis backplane.
-
-## Production hardening & CI
-
-- **OpenAPI** at `/openapi/v1.json`, interactive **Scalar** UI at `/scalar/v1` (bearer scheme registered)
-- **Rate limiting**: 300 req/min per tenant (sliding window) globally, 10 req/min per IP on auth endpoints (429 with `Retry-After` semantics)
-- **Serilog** structured request logging, optional Seq sink via `Seq__ServerUrl`
-- **OpenTelemetry** ASP.NET Core/HTTP/Npgsql instrumentation; traces + metrics export when `OTEL_EXPORTER_OTLP_ENDPOINT` is set
-- **Startup guards** in Production reject default JWT keys, default DB passwords and default MinIO secrets
-- **Health** `/health/ready` checks Postgres and Redis; `/health/live` is dependency-free
-- **Subdomain tenant resolution** from `Host` header before handlers run
-
-Production overlay (migrations run as a one-shot job before the API starts; internal stores
-are not published on host ports):
-
-```bash
-POSTGRES_PASSWORD='...' JWT_KEY='long-random-secret' MINIO_ROOT_PASSWORD='...' \
-MINIO_PUBLIC_ENDPOINT='http://localhost:9000' \
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-```
-
-CI (`.github/workflows/ci.yml`) runs the containerized test suite, builds both images and
-smoke-tests the API image against throwaway Postgres/Redis containers.
-
-## Additional feature modules
-
-- **Finance**: refunds with reversing ledger entries, fee structures, installment generation,
-  discount codes and scholarships applied to invoices, invoice PDF export
-- **Academics**: enrollment status changes (including waitlist promotion with capacity guard),
-  teacher assignment/removal, student data export and erasure
-- **Scheduling**: leave-request create/review workflow
-- **Assessment**: question bank CRUD, attach questions to papers, manual grading of essay/coding
-  answers that recalculates attempts and gradebook rows
-- **Communication**: announcements, direct conversations/messages, notification preferences,
-  notification inbox with read tracking, email/SMS delivery worker over the outbox (SMTP +
-  HTTP webhook, optional)
-- **Parent portal**: guardian-scoped child list and summary (attendance, fees, grades)
-- **Content**: learning-material attachment/publishing linked to assets or external URLs
-- **Admin**: audit-log query, feature flags, cross-entity search, report-card PDF export
-- **Platform**: Redis-backed global rate limit shared across replicas
+Demo login: `admin@star.local` / `Password123!`, tenant slug `star-coaching`.
 
 ## Architecture
 
-Conventional layered architecture: **Controllers → application service interfaces → MediatR
-handlers → EF Core**. Controllers contain no business logic; services map API DTOs to commands
-and queries. Domain policies (`Domain/Services`) hold pure rules. See
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for conventions and the microservice extraction path.
-
-## Tests
-
-```bash
-./scripts/run-tests.sh
+```
+Api/Controllers  →  Application/Services (I*Service)  →  Application/Features (commands, queries, validators, handlers)
+       ↓                        ↓                                   ↓
+   DTOs & auth           abstractions (IApplicationDbContext,       Domain entities & policies
+                         ICurrentUser, IObjectStorage, ...)
+                                   ↓
+                       Infrastructure (EF Core, MinIO/S3, interceptors, projections, Hangfire)
 ```
 
-21 tests run in a .NET SDK container; Testcontainers starts a real Postgres 17 container via
-the host Docker socket (`--network host` lets the test process reach it). Integration tests
-exercise the real EF model, global query filters, audit interceptor, MediatR pipeline and
-handlers — no mocked DbContexts. Unit tests cover `Money` and PBKDF2 password hashing.
+- **Domain** — entities, enums, `Money` value object and pure policies; no framework dependencies.
+- **Application** — API DTOs, service interfaces + implementations, CQRS command/query slices, FluentValidation, MediatR pipeline (logging → tenant guard → validation).
+- **Infrastructure** — EF Core 10 model/configurations/migrations, audit interceptor, outbox dispatcher, MinIO + AWS S3 adapters, projection rebuild, PDF generation, email/SMS transport.
+- **Api** — thin controllers, JWT auth, tenant resolution, rate limiting, health checks, observability, SignalR, Hangfire, global exception handling.
 
-## Realtime notifications
+### Solution map
 
-- `NotificationHub` is authenticated and puts each connection in a `user:{userId}` group
-  (plus `tenant:{tenantId}`).
-- After an outbox handler commits its notification, `OutboxDispatcher` pushes the payload to
-  that user's group — **after** the transaction commits, so a transport failure cannot cause a
-  duplicate notification on retry.
-- SignalR uses a Redis backplane (`Redis:ConnectionString`) so messages fan out across API
-  replicas. Remove that setting to run without Redis.
-- The React container signs in, opens `/hubs/notifications` with the access token, and shows
-  live notifications. Nginx proxies the WebSocket upgrade.
-
-End-to-end check:
-
-```bash
-docker run --rm --network host -v "$PWD":/work -w /work node:22-alpine \
-  sh -c 'npm install --no-save @microsoft/signalr@10.0.11 >/dev/null && node scripts/verify-realtime.mjs'
+```
+src/CoachingPlatform.Domain        Entities, value objects, domain policies
+src/CoachingPlatform.Application   DTOs, services, CQRS use cases, abstractions
+src/CoachingPlatform.Infrastructure Persistence, storage adapters, jobs, messaging, documents
+src/CoachingPlatform.Api           Controllers, hubs, middleware, Program.cs
+tests/CoachingPlatform.Tests       50 unit + integration tests (Testcontainers)
+docs/                              ARCHITECTURE.md, DOMAIN-MODEL.md
 ```
 
-## EF tooling
+## Features
 
-Tool manifest is committed at `.config/dotnet-tools.json`. To add a migration after changing the model:
+- **Identity & tenancy** — self-service tenant provisioning, JWT login, hashed rotating refresh tokens, lockout, roles/permissions, parent/guardian links, multi-tenant users
+- **Academics** — courses, subjects/topics tree, academic years/terms, batches, teacher assignment, enrolments with capacity control and lifecycle (waitlist promotion, transfer, completion, dropout)
+- **Scheduling** — recurring rules → generated sessions, teacher/room conflict detection, room booking/availability, attendance with QR/geofence-ready methods, leave requests
+- **Assessment** — question bank, tests with timers/retakes/proctoring flags, auto-grading, manual grading, rubrics, gradebook, report cards (PDF)
+- **Finance** — fee structures, installments, discount codes, scholarships, invoices, payments, refunds with reversing double-entry ledger, invoice PDFs
+- **Communication** — announcements with role/user/batch fan-out, direct messaging, notification inbox and preferences, real-time push, email (SMTP) and SMS (webhook)
+- **CRM** — leads, applications, documents, review workflow and one-click conversion into a student with enrolment, membership, role and guardian link
+- **User management** — invite users, assign/remove roles, suspend/activate, searchable paged list
+- **Reporting** — dashboards for attendance, fee collection, batch utilization and grades, served from projection tables; audit logs, feature flags, search
+- **Files** — presigned uploads/downloads with MinIO or AWS S3, asset registry with scan status
+- **Integrations** — accepts exam-service result events via a key-protected endpoint and creates candidate notifications
+
+## Tenancy, security and consistency
+
+- Global EF query filters enforce `!IsDeleted && TenantId == CurrentTenantId` on every tenant row; unique indexes are tenant-scoped and filtered on soft delete.
+- Row-version optimistic concurrency on mutable aggregates; conflicts surface as structured `409`.
+- Staff-only endpoints require Admin/Teacher; candidate/guardian endpoints use ownership or guardian checks.
+- JWT validation with tight clock skew, issuer/audience/signature checks; production refuses default secrets.
+- Rate limiting: per-tenant globally via Redis, per-IP on auth endpoints.
+- Audit log records every mutation with a JSON change set; secrets are redacted.
+- Transactional outbox makes notifications, fan-out and integrations retryable.
+
+## Background jobs
+
+| Job | Schedule | Purpose |
+| --- | --- | --- |
+| `outbox-dispatch` | every 5 s | Typed handlers → notifications, projections, delivery events; 5 retries then dead-letter |
+| `announcement-fanout` | every 5 s | Expands targeted audiences into durable notifications |
+| `projection-rebuild` | daily | Authoritative rebuild of reporting projections |
+| `refresh-token-cleanup` | daily | Removes expired tokens |
+
+All workers are guarded with `[DisableConcurrentExecution]` for safe multi-replica deployment.
+
+## Configuration
+
+Copy `.env.example` to `.env`. Key settings:
+
+| Variable | Purpose |
+| --- | --- |
+| `JWT_KEY` | Shared with the exam service; ≥ 32 chars, no dev default in Production |
+| `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD` | Storage credentials |
+| `STORAGE_PROVIDER` | `minio` (default) or `s3` |
+| `AWS_REGION`, `AWS_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Used when provider is `s3` (IAM role preferred) |
+| `SEQ_URL`, `OTEL_ENDPOINT` | Optional observability exporters |
+| `RATE_TENANT_LIMIT`, `RATE_AUTH_LIMIT` | Rate limits |
+| `EXAM_INTEGRATION_KEY` | Shared secret for exam-service result events |
+
+## Deployment
 
 ```bash
-docker run --rm -v "$PWD":/work -w /work mcr.microsoft.com/dotnet/sdk:10.0 \
-  bash -lc 'dotnet tool restore && dotnet ef migrations add MyMigration \
-    --project src/CoachingPlatform.Infrastructure \
-    --startup-project src/CoachingPlatform.Api'
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
+
+The production overlay validates required variables, hides internal storage ports and runs EF migrations as a one-shot dependency before the API starts. Full runbook: [DEPLOY.md](DEPLOY.md).
+
+## Testing
+
+```bash
+./scripts/run-tests.sh        # 50 tests, real Postgres via Testcontainers
+cd ../e2e && ./run-e2e.sh     # browser E2E + adversarial attack suites
+```
+
+## Known boundaries
+
+- Reports are eventually consistent (seconds), not transactionally instant.
+- Postgres, Redis and MinIO are single services until you add HA (replication, Sentinel, distributed MinIO).
+- The frontend focuses on auth, notifications and uploads; most module operations are API-driven.
+- Password reset/MFA/SSO, payroll and mobile apps are not implemented.
+
+## Related repositories
+
+- [Proctored Exam Service](https://github.com/RaiyanKhan19-41453-3/proctored-exam-service) — standalone exam microservice
+- [coaching-e2e](https://github.com/RaiyanKhan19-41453-3/coaching-e2e) — Playwright E2E and adversarial suites
