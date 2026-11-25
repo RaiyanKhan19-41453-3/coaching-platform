@@ -127,7 +127,7 @@ The production overlay validates required variables, hides internal storage port
 
 ```bash
 ./scripts/run-tests.sh        # 50 tests, real Postgres via Testcontainers
-cd ../e2e && ./run-e2e.sh     # browser E2E + adversarial attack suites
+cd ../e2e && ./run-e2e.sh     # browser E2E + four adversarial attack suites (incl. annihilation fuzzing)
 ```
 
 ## Known boundaries
