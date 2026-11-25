@@ -4,6 +4,12 @@ A **multi-tenant, production-shaped coaching-center management system** built wi
 
 > Companion service: [Proctored Exam Service](https://github.com/RaiyanKhan19-41453-3/proctored-exam-service) · End-to-end tests: [coaching-e2e](https://github.com/RaiyanKhan19-41453-3/coaching-e2e)
 
+## Screenshots
+
+| Login | Live dashboard | API documentation |
+| --- | --- | --- |
+| ![Login screen](docs/screenshots/main-login.png) | ![Live notifications and materials](docs/screenshots/main-dashboard.png) | ![Scalar API docs](docs/screenshots/main-api-docs.png) |
+
 ## Contents
 
 - [Quick start](#quick-start)
