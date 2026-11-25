@@ -77,8 +77,8 @@ internal static async Task<List<Guid>> ResolveRecipientsAsync(
 
     if (audience.Roles.Count > 0)
     {
-        var matches = await (from ur in db.Set<UserRole>()
-                             join role in db.Set<Role>() on ur.RoleId equals role.Id
+        var matches = await (from ur in db.Set<UserRole>().IgnoreQueryFilters()
+                             join role in db.Set<Role>().IgnoreQueryFilters() on ur.RoleId equals role.Id
                              where audience.Roles.Contains(role.Name)
                              select ur.UserId).ToListAsync(ct);
         foreach (var id in matches) ids.Add(id);
@@ -86,13 +86,13 @@ internal static async Task<List<Guid>> ResolveRecipientsAsync(
     if (audience.BatchIds.Count > 0)
     {
         var batchIds = audience.BatchIds.Where(x => Guid.TryParse(x, out _)).Select(Guid.Parse).ToList();
-        var students = await db.Set<Enrollment>()
+        var students = await db.Set<Enrollment>().IgnoreQueryFilters()
             .Where(e => batchIds.Contains(e.BatchId)).Select(e => e.StudentId).ToListAsync(ct);
         foreach (var id in students) ids.Add(id);
     }
     if (audience.Roles.Count == 0 && audience.UserIds.Count == 0 && audience.BatchIds.Count == 0)
     {
-        var all = await db.Set<TenantMembership>()
+        var all = await db.Set<TenantMembership>().IgnoreQueryFilters()
             .Where(m => m.TenantId == tenantId).Select(m => m.UserId).ToListAsync(ct);
         foreach (var id in all) ids.Add(id);
     }
