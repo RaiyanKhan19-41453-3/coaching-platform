@@ -20,6 +20,9 @@ const level = [{value:'Beginner',label:'Beginner'},{value:'Intermediate',label:'
 
 export const resources: Resource[] = [
   // ACADEMICS
+  { key:'academic-years', label:'Academic years', path:'/api/academic-years', fields:[
+    {name:'name',label:'Year (e.g. 2026-27)',required:true},{name:'startDate',label:'Start',type:'date',required:true},{name:'endDate',label:'End',type:'date',required:true}],
+    columns:['id','name','startDate','endDate','isActive'] },
   { key:'courses', label:'Courses', path:'/api/courses', fields:[
     {name:'code',label:'Code',required:true},{name:'name',label:'Name',required:true},{name:'description',label:'Description',type:'textarea'},
     {name:'level',label:'Level',type:'select',options:level,default:'Beginner'},{name:'durationMonths',label:'Duration (months)',type:'number',default:6}],

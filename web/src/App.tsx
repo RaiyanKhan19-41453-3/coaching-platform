@@ -27,6 +27,7 @@ export default function App() {
   return <MantineProvider theme={theme}><Notifications/><BrowserRouter><NotificationsProvider><Layout><Routes>
     <Route path="/" element={<Dashboard/>}/>
     <Route path="/academics" element={<R k="courses"/>}/>
+    <Route path="/academics/years" element={<R k="academic-years"/>}/>
     <Route path="/academics/courses" element={<R k="courses"/>}/>
     <Route path="/academics/batches" element={<R k="batches"/>}/>
     <Route path="/academics/enrollments" element={<R k="enrollments"/>}/>
