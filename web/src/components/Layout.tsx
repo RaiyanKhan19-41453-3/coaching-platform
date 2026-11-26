@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { AppShell, NavLink, Group, Title, Badge, Button, Text } from '@mantine/core';
-import { IconGauge, IconSchool, IconCalendar, IconCalendarEvent, IconClipboardCheck, IconCash, IconUsers, IconMessages, IconMessage, IconChartBar, IconFile, IconBook, IconBabyCarriage, IconSearch, IconBell, IconSettings, IconLogout } from '@tabler/icons-react';
+import { IconGauge, IconSchool, IconCalendar, IconCalendarEvent, IconClipboardCheck, IconCash, IconUsers, IconMessages, IconMessage, IconChartBar, IconFile, IconBook, IconBabyCarriage, IconSearch, IconSettings, IconLogout } from '@tabler/icons-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { clearToken } from '../api';
+import { NotificationBell } from './NotificationBell';
 
 export const nav = [
   { to:'/', label:'Dashboard', icon:IconGauge },
@@ -20,7 +21,6 @@ export const nav = [
   { to:'/materials', label:'Course materials', icon:IconBook },
   { to:'/parent', label:'Parent portal', icon:IconBabyCarriage },
   { to:'/search', label:'Search', icon:IconSearch },
-  { to:'/notifications', label:'Notifications', icon:IconBell },
   { to:'/operations', label:'Operations', icon:IconSettings },
 ];
 
@@ -33,7 +33,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group><Title order={4}>Coaching Platform</Title><Badge color="teal" variant="light">Multi-tenant</Badge></Group>
-          <Button variant="subtle" color="red" leftSection={<IconLogout size={16}/>} onClick={()=>{clearToken(); navigate('/login');}}>Sign out</Button>
+          <Group gap="xs">
+            <NotificationBell />
+            <Button variant="subtle" color="red" leftSection={<IconLogout size={16}/>} onClick={()=>{clearToken(); navigate('/login');}}>Sign out</Button>
+          </Group>
         </Group>
       </AppShell.Header>
       <AppShell.Navbar p="md">

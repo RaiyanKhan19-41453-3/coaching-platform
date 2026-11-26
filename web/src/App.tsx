@@ -12,6 +12,7 @@ import { Reports } from './components/Reports';
 import { Parent } from './components/Parent';
 import { Search } from './components/Search';
 import { Notifications as NotificationsPage } from './components/Notifications';
+import { NotificationsProvider } from './components/NotificationContext';
 import { Operations } from './components/Operations';
 import { Timetable } from './components/Timetable';
 import { Messaging } from './components/Messaging';
@@ -23,7 +24,7 @@ const R = ({ k }: { k:string }) => { const r=resourceByKey(k); return r ? <Resou
 export default function App() {
   const [token, setToken] = useState(getToken());
   if (!token) return <MantineProvider theme={theme}><Notifications/><Login onSuccess={()=>setToken(getToken())}/></MantineProvider>;
-  return <MantineProvider theme={theme}><Notifications/><BrowserRouter><Layout><Routes>
+  return <MantineProvider theme={theme}><Notifications/><BrowserRouter><NotificationsProvider><Layout><Routes>
     <Route path="/" element={<Dashboard/>}/>
     <Route path="/academics" element={<R k="courses"/>}/>
     <Route path="/academics/courses" element={<R k="courses"/>}/>
@@ -58,5 +59,5 @@ export default function App() {
     <Route path="/notifications" element={<NotificationsPage/>}/>
     <Route path="/operations" element={<Operations/>}/>
     <Route path="*" element={<Navigate to="/"/>}/>
-  </Routes></Layout></BrowserRouter></MantineProvider>;
+  </Routes></Layout></NotificationsProvider></BrowserRouter></MantineProvider>;
 }
