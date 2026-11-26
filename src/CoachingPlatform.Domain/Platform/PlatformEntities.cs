@@ -28,3 +28,18 @@ public sealed class OutboxMessage : Entity
     public int RetryCount { get; set; }
     public string? LastError { get; set; }
 }
+
+/// <summary>
+/// Inbound event ledger. A unique (tenant, event type, event id) key makes webhook
+/// consumers idempotent: the producer may deliver the same event more than once
+/// (at-least-once), but the effect is applied only once.
+/// </summary>
+public sealed class InboxMessage : Entity
+{
+    public Guid TenantId { get; set; }
+    public string EventType { get; set; } = default!;
+    public string EventId { get; set; } = default!;
+    public DateTimeOffset ReceivedAt { get; set; }
+    public DateTimeOffset? ProcessedAt { get; set; }
+    public Guid EffectId { get; set; }
+}

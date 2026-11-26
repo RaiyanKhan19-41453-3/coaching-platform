@@ -98,6 +98,7 @@ public sealed class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Asset> Assets => Set<Asset>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
 
     public DbSet<AttendanceStat> AttendanceStats => Set<AttendanceStat>();
     public DbSet<FeeSummary> FeeSummaries => Set<FeeSummary>();

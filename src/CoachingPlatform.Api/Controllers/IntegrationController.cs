@@ -21,9 +21,10 @@ public sealed class IntegrationController(ISender sender, IConfiguration configu
         foreach (var candidateId in body.CandidateIds.Distinct())
             await sender.Send(new RecordExternalNotification(body.TenantId, candidateId,
                 "exam.results_published", "Exam results published",
-                $"Results for exam {body.ExamId} are now available."), ct);
+                $"Results for exam {body.ExamId} are now available.", body.EventId), ct);
         return Ok(new { notified = body.CandidateIds.Distinct().Count() });
     }
 }
 
-public sealed record ExamResultsEvent(Guid TenantId, Guid ExamId, List<Guid> CandidateIds, int PublishedCount);
+public sealed record ExamResultsEvent(Guid TenantId, Guid ExamId, List<Guid> CandidateIds,
+    int PublishedCount, Guid? EventId = null);

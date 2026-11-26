@@ -98,7 +98,7 @@ docs/                              ARCHITECTURE.md, DOMAIN-MODEL.md
 - JWT validation with tight clock skew, issuer/audience/signature checks; production refuses default secrets.
 - Rate limiting: per-tenant globally via Redis, per-IP on auth endpoints.
 - Audit log records every mutation with a JSON change set; secrets are redacted.
-- Transactional outbox makes notifications, fan-out and integrations retryable.
+- Transactional outbox makes notifications, fan-out and integrations retryable; inbound webhooks use an inbox keyed by producer event id so retries have exactly-once effects.
 
 ## Background jobs
 

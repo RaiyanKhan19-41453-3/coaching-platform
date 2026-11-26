@@ -3412,6 +3412,42 @@ namespace CoachingPlatform.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditLogs");
                 });
 
+            modelBuilder.Entity("CoachingPlatform.Domain.Platform.InboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EffectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "EventType", "EventId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_InboxMessages_Dedupe");
+
+                    b.ToTable("InboxMessages");
+                });
+
             modelBuilder.Entity("CoachingPlatform.Domain.Platform.OutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")

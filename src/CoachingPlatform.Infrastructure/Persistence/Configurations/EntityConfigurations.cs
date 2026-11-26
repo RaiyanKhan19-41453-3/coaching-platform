@@ -569,6 +569,19 @@ public sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outbox
     }
 }
 
+public sealed class InboxMessageConfiguration : IEntityTypeConfiguration<InboxMessage>
+{
+    public void Configure(EntityTypeBuilder<InboxMessage> b)
+    {
+        b.HasKey(e => e.Id);
+        b.Property(e => e.Id).ValueGeneratedNever();
+        b.Property(e => e.EventType).HasMaxLength(200).IsRequired();
+        b.Property(e => e.EventId).HasMaxLength(200).IsRequired();
+        b.HasIndex(e => new { e.TenantId, e.EventType, e.EventId }).IsUnique()
+            .HasDatabaseName("IX_InboxMessages_Dedupe");
+    }
+}
+
 public sealed class UserConfiguration : GlobalEntityConfiguration<User>
 {
     public override void Configure(EntityTypeBuilder<User> b)
