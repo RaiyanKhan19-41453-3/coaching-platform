@@ -1,180 +1,62 @@
-import { HubConnectionBuilder, type HubConnection } from '@microsoft/signalr';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { MantineProvider, createTheme } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { getToken } from './api';
+import { Layout } from './components/Layout';
+import { Login } from './components/Login';
+import { Dashboard } from './components/Dashboard';
+import { ResourcePage } from './components/ResourcePage';
+import { Assets } from './components/Assets';
+import { Reports } from './components/Reports';
+import { Parent } from './components/Parent';
+import { Search } from './components/Search';
+import { Notifications as NotificationsPage } from './components/Notifications';
+import { Operations } from './components/Operations';
+import { Timetable } from './components/Timetable';
+import { Messaging } from './components/Messaging';
+import { resourceByKey } from './resources';
 
-type Notice = {
-  id: string;
-  type: string;
-  title: string;
-  body: string;
-  sentAt: string;
-};
-
-type Asset = {
-  id: string;
-  fileName: string;
-  contentType: string;
-  sizeBytes: number;
-  scanStatus: number;
-};
-
-const TOKEN_KEY = 'coaching-token';
+const theme = createTheme({ primaryColor:'teal', fontFamily:'Inter, system-ui, sans-serif', defaultRadius:'md' });
+const R = ({ k }: { k:string }) => { const r=resourceByKey(k); return r ? <ResourcePage resource={r}/> : <Navigate to="/"/>; };
 
 export default function App() {
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? '');
-  const [email, setEmail] = useState('admin@star.local');
-  const [password, setPassword] = useState('Password123!');
-  const [tenantSlug, setTenantSlug] = useState('star-coaching');
-  const [error, setError] = useState('');
-  const [connection, setConnection] = useState('disconnected');
-  const [notices, setNotices] = useState<Notice[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const hub = useRef<HubConnection | null>(null);
-
-  async function refreshAssets() {
-    try {
-      const response = await fetch('/api/assets', {
-        headers: { Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) ?? ''}` },
-      });
-      if (response.ok) setAssets(await response.json() as Asset[]);
-    } catch { /* notifications are the primary view */ }
-  }
-
-  useEffect(() => {
-    if (!token) return;
-    const c = new HubConnectionBuilder()
-      .withUrl('/hubs/notifications', { accessTokenFactory: () => token })
-      .withAutomaticReconnect()
-      .build();
-
-    c.on('notification', (n: Notice) => setNotices(prev => [n, ...prev].slice(0, 20)));
-    c.onreconnecting(() => setConnection('reconnecting…'));
-    c.onreconnected(() => setConnection('connected'));
-    c.onclose(() => setConnection('disconnected'));
-
-    setConnection('connecting…');
-    c.start()
-      .then(() => { setConnection('connected'); void refreshAssets(); })
-      .catch((e: unknown) => {
-        setConnection('failed');
-        setError(String(e));
-      });
-    hub.current = c;
-
-    return () => {
-      hub.current = null;
-      void c.stop();
-    };
-  }, [token]);
-
-  async function login(event: React.FormEvent) {
-    event.preventDefault();
-    setError('');
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, tenantSlug }),
-      });
-      if (!response.ok) throw new Error(`Login failed: HTTP ${response.status}`);
-      const data = (await response.json()) as { accessToken: string };
-      localStorage.setItem(TOKEN_KEY, data.accessToken);
-      setToken(data.accessToken);
-    } catch (e) {
-      setError(String(e));
-    }
-  }
-
-  async function uploadFile(event: React.FormEvent) {
-    event.preventDefault();
-    if (!file) return;
-    setUploading(true);
-    setError('');
-    try {
-      const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-      const started = await fetch('/api/assets/upload-url', {
-        method: 'POST', headers,
-        body: JSON.stringify({
-          fileName: file.name, contentType: file.type || 'application/octet-stream',
-          sizeBytes: file.size, ownerType: 'Lesson', ownerId: null, isPublic: false,
-        }),
-      });
-      if (!started.ok) throw new Error(`Upload URL failed: HTTP ${started.status}`);
-      const { id, url } = await started.json() as { id: string; url: string };
-      const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
-      if (!put.ok) throw new Error(`Storage upload failed: HTTP ${put.status}`);
-      await fetch(`/api/assets/${id}/complete`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-      await refreshAssets();
-      setFile(null);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  function logout() {
-    localStorage.removeItem(TOKEN_KEY);
-    setToken('');
-    setNotices([]);
-    setConnection('disconnected');
-  }
-
-  return (
-    <main>
-      <h1>Coaching Platform</h1>
-
-      {!token ? (
-        <form className="card" onSubmit={login}>
-          <h2>Sign in</h2>
-          <label>Email<input value={email} onChange={e => setEmail(e.target.value)} /></label>
-          <label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} /></label>
-          <label>Tenant slug<input value={tenantSlug} onChange={e => setTenantSlug(e.target.value)} /></label>
-          <button type="submit">Sign in</button>
-        </form>
-      ) : (
-        <section className="card">
-          <div className="row">
-            <h2>Live notifications</h2>
-            <span className={`badge ${connection}`}>{connection}</span>
-            <button onClick={logout}>Sign out</button>
-          </div>
-          {notices.length === 0 ? (
-            <p className="muted">Waiting for events. Trigger an invoice or attendance update to see one arrive.</p>
-          ) : (
-            <ul className="notices">
-              {notices.map(n => (
-                <li key={n.id}>
-                  <strong>{n.title}</strong>
-                  <span>{n.body}</span>
-                  <small>{n.type}</small>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
-
-      {token && (
-        <section className="card">
-          <h2>Materials</h2>
-          <form className="row" onSubmit={uploadFile}>
-            <input type="file" onChange={e => setFile(e.target.files?.[0] ?? null)} />
-            <button type="submit" disabled={!file || uploading}>{uploading ? 'Uploading…' : 'Upload'}</button>
-          </form>
-          <ul className="notices">
-            {assets.map(a => (
-              <li key={a.id}>
-                <strong>{a.fileName}</strong>
-                <span>{a.sizeBytes} bytes · {a.scanStatus === 1 ? 'ready' : 'pending'}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {error && <p className="error">{error}</p>}
-    </main>
-  );
+  const [token, setToken] = useState(getToken());
+  if (!token) return <MantineProvider theme={theme}><Notifications/><Login onSuccess={()=>setToken(getToken())}/></MantineProvider>;
+  return <MantineProvider theme={theme}><Notifications/><BrowserRouter><Layout><Routes>
+    <Route path="/" element={<Dashboard/>}/>
+    <Route path="/academics" element={<R k="courses"/>}/>
+    <Route path="/academics/courses" element={<R k="courses"/>}/>
+    <Route path="/academics/batches" element={<R k="batches"/>}/>
+    <Route path="/academics/enrollments" element={<R k="enrollments"/>}/>
+    <Route path="/scheduling" element={<R k="schedule-rules"/>}/>
+    <Route path="/scheduling/rules" element={<R k="schedule-rules"/>}/>
+    <Route path="/scheduling/rooms" element={<R k="rooms"/>}/>
+    <Route path="/scheduling/leave" element={<R k="leave-requests"/>}/>
+    <Route path="/timetable" element={<Timetable/>}/>
+    <Route path="/assessment" element={<R k="assessments"/>}/>
+    <Route path="/assessment/assessments" element={<R k="assessments"/>}/>
+    <Route path="/assessment/questions" element={<R k="questions"/>}/>
+    <Route path="/finance" element={<R k="fee-structures"/>}/>
+    <Route path="/finance/fees" element={<R k="fee-structures"/>}/>
+    <Route path="/finance/invoices" element={<R k="invoices"/>}/>
+    <Route path="/finance/discounts" element={<R k="discounts"/>}/>
+    <Route path="/finance/scholarships" element={<R k="scholarships"/>}/>
+    <Route path="/crm" element={<R k="leads"/>}/>
+    <Route path="/crm/leads" element={<R k="leads"/>}/>
+    <Route path="/crm/applications" element={<R k="applications"/>}/>
+    <Route path="/crm/follow-ups" element={<R k="follow-ups"/>}/>
+    <Route path="/users" element={<R k="users"/>}/>
+    <Route path="/communication" element={<R k="announcements"/>}/>
+    <Route path="/communication/announcements" element={<R k="announcements"/>}/>
+    <Route path="/messages" element={<Messaging/>}/>
+    <Route path="/reports" element={<Reports/>}/>
+    <Route path="/files" element={<Assets/>}/>
+    <Route path="/materials" element={<R k="materials"/>}/>
+    <Route path="/parent" element={<Parent/>}/>
+    <Route path="/search" element={<Search/>}/>
+    <Route path="/notifications" element={<NotificationsPage/>}/>
+    <Route path="/operations" element={<Operations/>}/>
+    <Route path="*" element={<Navigate to="/"/>}/>
+  </Routes></Layout></BrowserRouter></MantineProvider>;
 }

@@ -6,9 +6,13 @@ A **multi-tenant, production-shaped coaching-center management system** built wi
 
 ## Screenshots
 
-| Login | Live dashboard | API documentation |
+| Login | Overview dashboard | API documentation |
 | --- | --- | --- |
-| ![Login screen](docs/screenshots/main-login.png) | ![Live notifications and materials](docs/screenshots/main-dashboard.png) | ![Scalar API docs](docs/screenshots/main-api-docs.png) |
+| ![Login screen](docs/screenshots/main-login.png) | ![Overview dashboard](docs/screenshots/main-dashboard.png) | ![Scalar API docs](docs/screenshots/main-api-docs.png) |
+
+| Live notifications | Files & materials |
+| --- | --- |
+| ![Live notifications](docs/screenshots/main-notifications.png) | ![Files and materials](docs/screenshots/main-files.png) |
 
 ## Contents
 
@@ -31,7 +35,7 @@ docker compose up -d --build
 
 | Service | URL | Purpose |
 | --- | --- | --- |
-| Web | http://localhost:13000 | React app (login, notifications, material uploads) |
+| Web | http://localhost:13000 | React + Mantine app covering all modules (academics, scheduling/timetable/attendance, assessment, finance, CRM, users, messaging, reports, operations, files/materials, parent portal, search, notifications) |
 | API | http://localhost:18081 | ASP.NET Core controllers |
 | OpenAPI / Scalar | http://localhost:18081/openapi/v1.json · /scalar/v1 | API contract and interactive docs |
 | Health | http://localhost:18081/health/ready · /health/live | Postgres + Redis readiness |
@@ -140,7 +144,7 @@ cd ../e2e && ./run-e2e.sh     # browser E2E + four adversarial attack suites (in
 
 - Reports are eventually consistent (seconds), not transactionally instant.
 - Postgres, Redis and MinIO are single services until you add HA (replication, Sentinel, distributed MinIO).
-- The frontend focuses on auth, notifications and uploads; most module operations are API-driven.
+- The frontend is an operations console over the API, not a full self-service student/parent mobile app.
 - Password reset/MFA/SSO, payroll and mobile apps are not implemented.
 
 ## Related repositories

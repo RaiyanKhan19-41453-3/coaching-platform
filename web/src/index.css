@@ -1,18 +1,2 @@
-:root { font-family: system-ui, sans-serif; color: #0f172a; background: #f8fafc; }
-body { margin: 0; }
-main { max-width: 760px; margin: 3rem auto; padding: 0 1.5rem; }
-h1 { font-size: 2rem; }
-.card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
-label { display: block; margin: 0.75rem 0; font-weight: 600; }
-input { display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
-button { background: #0f172a; color: white; border: 0; border-radius: 6px; padding: 0.5rem 1rem; cursor: pointer; }
-.row { display: flex; align-items: center; gap: 1rem; }
-.row h2 { flex: 1; margin: 0; }
-.badge { font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: #e2e8f0; }
-.badge.connected { background: #bbf7d0; color: #14532d; }
-.badge.failed { background: #fecaca; color: #7f1d1d; }
-.muted { color: #64748b; }
-.error { color: #b91c1c; }
-.notices { list-style: none; padding: 0; margin: 0; }
-.notices li { display: flex; flex-direction: column; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0; }
-.notices small { color: #64748b; }
+html, body, #root { min-height: 100%; }
+body { margin: 0; background: #f8fafc; }
